@@ -2,7 +2,21 @@ import asyncio
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Awaitable
+from typing import Any, Awaitable, Optional
+import shutil
+import subprocess
+import numpy as _np
+try:
+    from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+    from PyQt5.QtCore import QUrl
+    _QT_MEDIA_AVAILABLE = True
+except Exception:
+    _QT_MEDIA_AVAILABLE = False
+try:
+    from playsound import playsound  # type: ignore
+    _PLAYSOUND_AVAILABLE = True
+except Exception:
+    _PLAYSOUND_AVAILABLE = False
 
 # 允许作为脚本直接运行：把项目根目录加入 sys.path（src 的上一级）
 try:
@@ -55,7 +69,12 @@ class Application:
 
         # 状态
         self.running = False
-        self.protocol = None
+        # protocol instance (set in _set_protocol). Annotate as Any to satisfy
+        # static checkers which cannot infer runtime assignment.
+        self.protocol: Any = None
+        # audio_codec is provided by AudioPlugin at runtime; annotate to avoid
+        # Pylance missing-attribute warnings.
+        self.audio_codec: Any = None
 
         # 设备状态（仅主程序改写，插件只读）
         self.device_state = DeviceState.IDLE
@@ -68,6 +87,8 @@ class Application:
             ListeningMode.REALTIME if self.aec_enabled else ListeningMode.AUTO_STOP
         )
         self.keep_listening = False
+        # task for auto-stop when in AUTO_STOP mode
+        self._auto_stop_task: asyncio.Task | None = None
 
         # 统一任务池（替代 _main_tasks/_bg_tasks）
         self._tasks: set[asyncio.Task] = set()
@@ -84,6 +105,14 @@ class Application:
 
         # 插件
         self.plugins = PluginManager()
+        # optional SFX player reference (to avoid GC when using Qt player)
+        self._sfx_player = None
+        # SFX cache: will hold pre-decoded PCM for fast playback
+        self._sfx_cached_int16: _np.ndarray | None = None
+        self._sfx_cached_float: _np.ndarray | None = None
+        self._sfx_cached_sr: int | None = None
+        # path to a cached WAV file (written from cached PCM) for winsound/Qt
+        self._sfx_cached_wav: Path | None = None
 
     # -------------------------
     # 生命周期
@@ -139,6 +168,7 @@ class Application:
         确保协议通道打开并广播一次协议就绪。返回是否已打开。
         """
         # 已打开直接返回
+        assert self.protocol is not None
         try:
             if self.is_audio_channel_opened():
                 return True
@@ -188,6 +218,7 @@ class Application:
     # -------------------------
     async def start_listening_manual(self) -> None:
         try:
+            assert self.protocol is not None
             ok = await self.connect_protocol()
             if not ok:
                 return
@@ -205,6 +236,7 @@ class Application:
 
     async def stop_listening_manual(self) -> None:
         try:
+            assert self.protocol is not None
             await self.protocol.send_stop_listening()
             await self.set_device_state(DeviceState.IDLE)
         except Exception:
@@ -215,6 +247,7 @@ class Application:
     # -------------------------
     async def start_auto_conversation(self) -> None:
         try:
+            assert self.protocol is not None
             ok = await self.connect_protocol()
             if not ok:
                 return
@@ -230,6 +263,7 @@ class Application:
             pass
 
     def _setup_protocol_callbacks(self) -> None:
+        assert self.protocol is not None
         self.protocol.on_network_error(self._on_network_error)
         self.protocol.on_incoming_json(self._on_incoming_json)
         self.protocol.on_incoming_audio(self._on_incoming_audio)
@@ -237,19 +271,24 @@ class Application:
         self.protocol.on_audio_channel_closed(self._on_audio_channel_closed)
 
     async def _wait_shutdown(self) -> None:
+        # _shutdown_event is created in _initialize_async_objects during run().
+        # Assert here so static type checkers know it's not None.
+        assert self._shutdown_event is not None
         await self._shutdown_event.wait()
 
     # -------------------------
     # 统一任务管理（精简）
     # -------------------------
-    def spawn(self, coro: Awaitable[Any], name: str) -> asyncio.Task:
+    def spawn(self, coro: Awaitable[Any], name: str) -> Optional[asyncio.Task]:
         """
         创建任务并登记，关停时统一取消。
         """
         if not self.running or (self._shutdown_event and self._shutdown_event.is_set()):
             logger.debug(f"跳过任务创建（应用正在关闭）: {name}")
             return None
-        task = asyncio.create_task(coro, name=name)
+        # asyncio.create_task expects a coroutine object; callers sometimes pass
+        # other Awaitable types. Use a narrow type-ignore to satisfy static checkers.
+        task = asyncio.create_task(coro, name=name)  # type: ignore[arg-type]
         self._tasks.add(task)
 
         def _done(t: asyncio.Task):
@@ -301,6 +340,12 @@ class Application:
             if msg_type == "tts":
                 state = json_data.get("state")
                 if state == "start":
+                    # Play the ready SFX right before TTS starts so the user
+                    # knows the AI is about to speak.
+                    try:
+                        self._play_listening_sfx()
+                    except Exception:
+                        logger.debug("Failed to play SFX before TTS start", exc_info=True)
                     # 仅当保持会话且实时模式时，TTS开始期间保持LISTENING；否则显示SPEAKING
                     if (
                         self.keep_listening
@@ -356,7 +401,7 @@ class Application:
         # 通道关闭回到 IDLE
         await self.set_device_state(DeviceState.IDLE)
 
-    async def set_device_state(self, state: DeviceState):
+    async def set_device_state(self, state: str):
         """
         仅供主程序内部调用：设置设备状态。插件请只读获取。
         """
@@ -373,14 +418,342 @@ class Application:
                 return
             logger.info(f"设置设备状态: {state}")
             self.device_state = state
+            # cancel any existing auto-stop task when state changes
+            try:
+                if self._auto_stop_task and not self._auto_stop_task.done():
+                    self._auto_stop_task.cancel()
+            except Exception:
+                pass
         # 锁外广播，避免插件回调引起潜在的长耗时阻塞
         try:
             await self.plugins.notify_device_state_changed(state)
             if state == DeviceState.LISTENING:
+                # Play a short 'ready' SFX to indicate listening started.
+                try:
+                    self._play_listening_sfx()
+                except Exception:
+                    logger.debug("Failed to play listening sfx", exc_info=True)
                 await asyncio.sleep(0.5)
                 self.aborted = False
+                # If in AUTO_STOP mode, schedule an auto-stop after 60 seconds
+                try:
+                    if self.keep_listening and self.listening_mode == ListeningMode.AUTO_STOP:
+                        async def _auto_stop_watch():
+                            try:
+                                # wait 60 seconds then stop listening if still in AUTO_STOP
+                                await asyncio.sleep(60)
+                                if self.keep_listening and self.listening_mode == ListeningMode.AUTO_STOP:
+                                    await self.protocol.send_stop_listening()
+                                    self.keep_listening = False
+                                    await self.set_device_state(DeviceState.IDLE)
+                            except asyncio.CancelledError:
+                                return
+                            except Exception:
+                                return
+
+                        # spawn and keep reference to allow cancellation on state changes
+                        self._auto_stop_task = asyncio.create_task(_auto_stop_watch(), name="auto_stop_watch")
+                except Exception:
+                    pass
         except Exception:
             pass
+
+    def _play_listening_sfx(self) -> None:
+        """
+        Play the ready SFX (`src/sfx/ready.mp3`). Try Qt multimedia first,
+        fall back to `playsound` if available. Non-blocking where possible.
+        """
+        logger.debug("_play_listening_sfx invoked")
+        try:
+            # Ensure cached PCM is prepared (if possible). This will also
+            # speed up playback and allow using the cached buffers below.
+            try:
+                self._ensure_sfx_cached()
+            except Exception:
+                logger.debug("_ensure_sfx_cached failed", exc_info=True)
+
+            # locate a filesystem SFX file for Qt/playsound/winsound fallbacks if needed
+            project_root = Path(__file__).resolve().parents[1]
+            candidates = [
+                project_root / "src" / "sfx" / "ready.wav",
+                project_root / "src" / "sfx" / "ready.mp3",
+                project_root / "src" / "sfx" / "ready.m4a",
+            ]
+            sfx_path = next((p for p in candidates if p.exists()), None)
+            if sfx_path is None and self._sfx_cached_int16 is None and self._sfx_cached_float is None:
+                logger.debug("SFX file not found and no cached audio available")
+                return
+            logger.debug(
+                "SFX candidate file=%s, cached_int16=%s, cached_float=%s, cached_wav=%s",
+                sfx_path,
+                "yes" if self._sfx_cached_int16 is not None else "no",
+                "yes" if self._sfx_cached_float is not None else "no",
+                self._sfx_cached_wav,
+            )
+            # Preferred method on Linux: route SFX through the same audio output
+            # used by the app's `AudioCodec` (sounddevice). Decode the MP3 to
+            # raw PCM matching `AudioConfig.OUTPUT_SAMPLE_RATE` and feed it to
+            # `audio_codec.write_pcm_direct()`, so the SFX uses the same output
+            # device/sink as TTS playback.
+            try:
+                if hasattr(self, "audio_codec") and getattr(self, "audio_codec"):
+                    # Ensure SFX is cached (decode once)
+                    try:
+                        self._ensure_sfx_cached()
+                    except Exception:
+                        logger.debug("Failed to ensure SFX cached", exc_info=True)
+
+                    async def _play_cached_via_audio_codec():
+                        try:
+                            from src.constants.constants import AudioConfig
+
+                            if self._sfx_cached_int16 is None:
+                                logger.debug("No cached int16 SFX available")
+                                return
+
+                            pcm = self._sfx_cached_int16
+                            frame_size = AudioConfig.OUTPUT_FRAME_SIZE
+                            total = len(pcm)
+                            idx = 0
+                            while idx < total and self.running:
+                                end = idx + frame_size
+                                chunk = pcm[idx:end]
+                                if len(chunk) < frame_size:
+                                    pad = _np.zeros(frame_size - len(chunk), dtype=_np.int16)
+                                    chunk = _np.concatenate((chunk, pad))
+                                try:
+                                    await self.audio_codec.write_pcm_direct(chunk)
+                                except Exception:
+                                    break
+                                idx = end
+
+                        except Exception:
+                            logger.debug("SFX via audio_codec failed", exc_info=True)
+
+                    self.spawn(_play_cached_via_audio_codec(), name="sfx:play_via_codec")
+                    logger.debug("Routed SFX via AudioCodec (spawned task)")
+                    return
+            except Exception:
+                # fall through to existing fallbacks
+                logger.debug("Routing SFX via audio codec unavailable, falling back", exc_info=True)
+
+            # If no audio_codec route, try playing the cached float via sounddevice
+            # to ensure the sound goes to the same device as the app (if possible).
+            if getattr(self, "_sfx_cached_float", None) is not None:
+                try:
+                    import sounddevice as sd
+
+                    device = None
+                    if hasattr(self, "audio_codec") and getattr(self, "audio_codec"):
+                        device = getattr(self.audio_codec, "speaker_device_id", None)
+
+                    try:
+                        sd.play(self._sfx_cached_float, samplerate=self._sfx_cached_sr, device=device)
+                        # do not block; let sounddevice stream in background
+                        logger.debug("Played SFX via sounddevice (cached float)")
+                        return
+                    except Exception:
+                        logger.debug("sounddevice play failed, falling back", exc_info=True)
+                except Exception:
+                    logger.debug("sounddevice module unavailable, skipping", exc_info=True)
+
+            # On Windows, use winsound for WAV files as a reliable fallback
+            try:
+                if sys.platform.startswith("win"):
+                    # prefer writing/using cached WAV if available (no external deps)
+                    wav_to_play = None
+                    if self._sfx_cached_wav and Path(self._sfx_cached_wav).exists():
+                        wav_to_play = self._sfx_cached_wav
+                    elif sfx_path is not None and sfx_path.suffix.lower() == ".wav":
+                        wav_to_play = sfx_path
+
+                    if wav_to_play is not None:
+                        try:
+                            import winsound
+
+                            winsound.PlaySound(str(wav_to_play), winsound.SND_FILENAME | winsound.SND_ASYNC)
+                            logger.debug("Played SFX via winsound (Windows WAV async): %s", wav_to_play)
+                            return
+                        except Exception:
+                            logger.debug("winsound playback failed, falling back", exc_info=True)
+            except Exception:
+                # ignore platform detection errors
+                pass
+
+            if _QT_MEDIA_AVAILABLE:
+                try:
+                    # Keep a reference on the Application instance to avoid
+                    # the QMediaPlayer being garbage-collected immediately.
+                    player = QMediaPlayer()
+                    if sfx_path is None:
+                        raise FileNotFoundError("No SFX file available for Qt fallback")
+                    url = QUrl.fromLocalFile(str(sfx_path))
+                    media = QMediaContent(url)
+                    player.setMedia(media)
+                    player.setVolume(50)
+                    player.play()
+                    self._sfx_player = player
+                    logger.debug("Played SFX via Qt multimedia")
+                    return
+                except Exception:
+                    logger.debug("Qt multimedia play failed, falling back", exc_info=True)
+
+            if _PLAYSOUND_AVAILABLE and sfx_path is not None:
+                # playsound is blocking; run in background thread to avoid blocking loop
+                threading.Thread(target=playsound, args=(str(sfx_path),), daemon=True).start()
+                logger.debug("Played SFX via playsound fallback")
+                return
+
+            logger.debug("No available method to play SFX (audio_codec, Qt multimedia or playsound)")
+        except Exception:
+            logger.exception("Unexpected error while attempting to play SFX")
+
+    def _ensure_sfx_cached(self) -> None:
+        """Decode SFX once and cache int16 (target sample rate) and float32 arrays.
+
+        This method is synchronous and idempotent. It prefers existing WAV files
+        (faster) and falls back to ffmpeg to decode MP3/other formats.
+        """
+        if self._sfx_cached_int16 is not None and self._sfx_cached_float is not None:
+            return
+
+        project_root = Path(__file__).resolve().parents[1]
+        # prefer wav for fast decoding
+        candidates = [
+            project_root / "src" / "sfx" / "ready.wav",
+            project_root / "src" / "sfx" / "ready.mp3",
+            project_root / "src" / "sfx" / "ready.m4a",
+        ]
+        sfx_path = None
+        for p in candidates:
+            if p.exists():
+                sfx_path = p
+                break
+        if sfx_path is None:
+            logger.debug("No SFX file found to cache")
+            return
+
+        from src.constants.constants import AudioConfig
+
+        target_sr = AudioConfig.OUTPUT_SAMPLE_RATE
+
+        try:
+            # If WAV, read directly via wave
+            if sfx_path.suffix.lower() == ".wav":
+                import wave
+
+                with wave.open(str(sfx_path), "rb") as wf:
+                    channels = wf.getnchannels()
+                    sampwidth = wf.getsampwidth()
+                    fr = wf.getframerate()
+                    raw = wf.readframes(wf.getnframes())
+
+                if sampwidth == 2:
+                    arr = _np.frombuffer(raw, dtype=_np.int16).astype(_np.float32) / 32768.0
+                elif sampwidth == 4:
+                    arr = _np.frombuffer(raw, dtype=_np.int32).astype(_np.float32) / 2147483648.0
+                elif sampwidth == 1:
+                    arr = _np.frombuffer(raw, dtype=_np.uint8).astype(_np.float32)
+                    arr = (arr - 128.0) / 128.0
+                else:
+                    arr = _np.frombuffer(raw, dtype=_np.int16).astype(_np.float32) / 32768.0
+
+                if channels > 1:
+                    arr = arr.reshape(-1, channels).mean(axis=1)
+
+                # resample if needed
+                if fr != target_sr:
+                    try:
+                        import soxr as _soxr
+                        resampler = _soxr.ResampleStream(fr, target_sr, num_channels=1, dtype="float32", quality="Q")
+                        arr = resampler.resample_chunk(arr, last=True)
+                    except Exception:
+                        # If soxr unavailable or fails, fallback to ffmpeg decode+resample
+                        logger.debug("soxr resample failed; falling back to ffmpeg for WAV resample", exc_info=True)
+                        ffmpeg = shutil.which("ffmpeg")
+                        if not ffmpeg:
+                            logger.debug("ffmpeg not found; cannot resample WAV")
+                            # allow outer exception handling to log and return
+                            raise
+                        cmd = [
+                            ffmpeg,
+                            "-hide_banner",
+                            "-loglevel",
+                            "error",
+                            "-i",
+                            str(sfx_path),
+                            "-f",
+                            "s16le",
+                            "-acodec",
+                            "pcm_s16le",
+                            "-ac",
+                            "1",
+                            "-ar",
+                            str(target_sr),
+                            "-",
+                        ]
+                        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        if not p.stdout:
+                            logger.debug("ffmpeg returned no audio for WAV resample")
+                            raise RuntimeError("ffmpeg_no_output")
+                        arr = _np.frombuffer(p.stdout, dtype=_np.int16).astype(_np.float32) / 32768.0
+
+            else:
+                # use ffmpeg to decode to s16le mono at target_sr
+                ffmpeg = shutil.which("ffmpeg")
+                if not ffmpeg:
+                    logger.debug("ffmpeg not found, cannot decode SFX")
+                    return
+                cmd = [
+                    ffmpeg,
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    str(sfx_path),
+                    "-f",
+                    "s16le",
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ac",
+                    "1",
+                    "-ar",
+                    str(target_sr),
+                    "-",
+                ]
+                p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if not p.stdout:
+                    logger.debug("ffmpeg returned no audio for SFX decoding")
+                    return
+                arr = _np.frombuffer(p.stdout, dtype=_np.int16).astype(_np.float32) / 32768.0
+
+            # Convert to int16 cached and float32 cached
+            int16 = (_np.clip(arr, -1.0, 1.0) * 32767.0).astype(_np.int16)
+            float32 = arr.astype(_np.float32)
+
+            self._sfx_cached_int16 = int16
+            self._sfx_cached_float = float32
+            self._sfx_cached_sr = target_sr
+            # Also write a cached WAV file for reliable Windows playback (winsound)
+            try:
+                cache_dir = project_root / "cache"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                wav_path = cache_dir / "sfx_ready_cached.wav"
+                import wave
+
+                with wave.open(str(wav_path), "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(target_sr)
+                    wf.writeframes(int16.tobytes())
+                self._sfx_cached_wav = wav_path
+                logger.debug("Wrote cached SFX WAV: %s", wav_path)
+            except Exception:
+                logger.debug("Failed to write cached WAV", exc_info=True)
+            logger.debug(f"SFX cached: frames={len(int16)}, sr={target_sr}")
+
+        except Exception as e:
+            logger.debug(f"Failed to cache SFX: {e}", exc_info=True)
 
     # -------------------------
     # 只读访问器（提供给插件使用）
@@ -436,6 +809,7 @@ class Application:
         中止语音输出.
         """
 
+        assert self.protocol is not None
         if self.aborted:
             logger.debug(f"已经中止，忽略重复的中止请求: {reason}")
             return
@@ -488,13 +862,14 @@ class Application:
                 await asyncio.gather(*self._tasks, return_exceptions=True)
                 self._tasks.clear()
 
-            # 关闭协议（限时，避免阻塞退出）
+            # 关闭协议（限时，避免阻塞退出)
             if self.protocol:
                 try:
-                    try:
-                        self._main_loop.create_task(self.protocol.close_audio_channel())
-                    except asyncio.TimeoutError:
-                        logger.warning("关闭协议超时，跳过等待")
+                    if self._main_loop is not None:
+                        try:
+                            self._main_loop.create_task(self.protocol.close_audio_channel())
+                        except asyncio.TimeoutError:
+                            logger.warning("关闭协议超时，跳过等待")
                 except Exception as e:
                     logger.error(f"关闭协议失败: {e}")
 
