@@ -89,6 +89,7 @@ class SystemOptionsWidget(QWidget):
         self.ui_controls.update(
             {
                 "aec_enabled_check": self.findChild(QCheckBox, "aec_enabled_check"),
+                "listening_auto_stop_edit": self.findChild(QLineEdit, "listening_auto_stop_edit"),
             }
         )
 
@@ -186,6 +187,16 @@ class SystemOptionsWidget(QWidget):
             # AEC配置
             aec_enabled = self.config_manager.get_config("AEC_OPTIONS.ENABLED", True)
             self._set_check_value("aec_enabled_check", aec_enabled)
+
+            # Force listening mode (optional)
+
+
+            # Listening auto-stop seconds
+            auto_stop = self.config_manager.get_config(
+                "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS", 60
+            )
+            if self.ui_controls.get("listening_auto_stop_edit"):
+                self._set_text_value("listening_auto_stop_edit", str(auto_stop))
 
         except Exception as e:
             self.logger.error(f"加载系统选项配置值失败: {e}", exc_info=True)
@@ -319,6 +330,26 @@ class SystemOptionsWidget(QWidget):
             # AEC配置
             aec_enabled = self._get_check_value("aec_enabled_check")
             config_data["AEC_OPTIONS.ENABLED"] = aec_enabled
+
+            # (No force listening mode UI anymore)
+
+            # Listening auto-stop seconds
+            try:
+                if self.ui_controls.get("listening_auto_stop_edit"):
+                    val = self._get_text_value("listening_auto_stop_edit")
+                    if val:
+                        # sanitize to int
+                        try:
+                            secs = int(val)
+                            if secs < 0:
+                                secs = 0
+                        except Exception:
+                            secs = 60
+                        config_data[
+                            "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS"
+                        ] = secs
+            except Exception:
+                self.logger.debug("Failed to read listening_auto_stop_edit", exc_info=True)
 
         except Exception as e:
             self.logger.error(f"获取系统选项配置数据失败: {e}", exc_info=True)

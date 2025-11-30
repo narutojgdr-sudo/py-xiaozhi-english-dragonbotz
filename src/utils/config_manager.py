@@ -18,6 +18,7 @@ class ConfigManager:
         "SYSTEM_OPTIONS": {
             "CLIENT_ID": None,
             "DEVICE_ID": None,
+            "LISTENING_AUTO_STOP_SECONDS": 60,
             "NETWORK": {
                 "OTA_VERSION_URL": "https://api.tenclass.net/xiaozhi/ota/",
                 "WEBSOCKET_URL": None,
@@ -177,7 +178,12 @@ class ConfigManager:
         保存配置到文件.
         """
         try:
-            # 确保配置目录存在
+            # 确保配置目录存在（防止 self.config_dir 为 None）
+            if getattr(self, "config_dir", None) is None:
+                project_root = resource_finder.get_project_root()
+                self.config_dir = project_root / "config"
+                # 确保 config_file 路径也被初始化
+                self.config_file = self.config_dir / "config.json"
             self.config_dir.mkdir(parents=True, exist_ok=True)
 
             # 保存配置文件

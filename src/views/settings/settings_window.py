@@ -187,8 +187,25 @@ class SettingsWindow(QDialog):
             if self.wake_word_tab:
                 wake_word_config = self.wake_word_tab.get_config_data()
                 all_config_data.update(wake_word_config)
-                # 保存唤醒词文件
-                self.wake_word_tab.save_keywords()
+                # 保存唤醒词文件 only if the wake words editor contains text.
+                # This avoids unintentionally overwriting the keywords file
+                # with an empty value when the user didn't edit keywords in the dialog.
+                try:
+                    wake_text = ""
+                    ctrl = getattr(self.wake_word_tab, "ui_controls", {}).get(
+                        "wake_words_edit"
+                    )
+                    if ctrl is not None:
+                        wake_text = ctrl.toPlainText().strip()
+                    if wake_text:
+                        self.wake_word_tab.save_keywords()
+                    else:
+                        self.logger.info(
+                            "Skip saving wake words because editor is empty (avoid reset)"
+                        )
+                except Exception:
+                    # fallback: do not save to avoid accidental reset
+                    self.logger.debug("Error checking wake words editor; skipping save", exc_info=True)
 
             # 摄像头配置
             if self.camera_tab:
