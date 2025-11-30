@@ -77,27 +77,27 @@ class SettingsWindow(QDialog):
 
             # 创建并添加系统选项组件
             self.system_options_tab = SystemOptionsWidget()
-            tab_widget.addTab(self.system_options_tab, "系统选项")
+            tab_widget.addTab(self.system_options_tab, "System")
             self.system_options_tab.settings_changed.connect(self._on_settings_changed)
 
             # 创建并添加唤醒词组件
             self.wake_word_tab = WakeWordWidget()
-            tab_widget.addTab(self.wake_word_tab, "唤醒词")
+            tab_widget.addTab(self.wake_word_tab, "Wake Words")
             self.wake_word_tab.settings_changed.connect(self._on_settings_changed)
 
             # 创建并添加摄像头组件
             self.camera_tab = CameraWidget()
-            tab_widget.addTab(self.camera_tab, "摄像头")
+            tab_widget.addTab(self.camera_tab, "Camera")
             self.camera_tab.settings_changed.connect(self._on_settings_changed)
 
             # 创建并添加音频设备组件
             self.audio_tab = AudioWidget()
-            tab_widget.addTab(self.audio_tab, "音频设备")
+            tab_widget.addTab(self.audio_tab, "Audio")
             self.audio_tab.settings_changed.connect(self._on_settings_changed)
 
             # 创建并添加快捷键设置组件
             self.shortcuts_tab = ShortcutsSettingsWidget()
-            tab_widget.addTab(self.shortcuts_tab, "快捷键")
+            tab_widget.addTab(self.shortcuts_tab, "Shortcuts")
             self.shortcuts_tab.settings_changed.connect(self._on_settings_changed)
 
             self.logger.debug("成功添加所有组件选项卡")
@@ -153,8 +153,8 @@ class SettingsWindow(QDialog):
                 # 显示保存成功并提示重启
                 reply = QMessageBox.question(
                     self,
-                    "配置保存成功",
-                    "配置已保存成功！\n\n为了使配置生效，建议重启软件。\n是否现在重启？",
+                    "Configuration Saved",
+                    "Configuration saved successfully!\n\nTo apply changes, it's recommended to restart the application.\nRestart now?",
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.Yes,
                 )
@@ -164,11 +164,11 @@ class SettingsWindow(QDialog):
                 else:
                     self.accept()
             else:
-                QMessageBox.warning(self, "错误", "配置保存失败，请检查输入的值。")
+                QMessageBox.warning(self, "Error", "Failed to save configuration. Please check your inputs.")
 
         except Exception as e:
             self.logger.error(f"保存配置失败: {e}", exc_info=True)
-            QMessageBox.critical(self, "错误", f"保存配置时发生错误: {str(e)}")
+            QMessageBox.critical(self, "Error", f"An error occurred while saving configuration: {str(e)}")
 
     def _save_all_config(self) -> bool:
         """
@@ -222,8 +222,8 @@ class SettingsWindow(QDialog):
         """
         reply = QMessageBox.question(
             self,
-            "确认重置",
-            "确定要重置所有配置为默认值吗？\n这将清除当前的所有设置。",
+            "Confirm Reset",
+            "Are you sure you want to reset all settings to defaults?\nThis will clear all current settings.",
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
         )
@@ -256,7 +256,7 @@ class SettingsWindow(QDialog):
 
         except Exception as e:
             self.logger.error(f"重置配置失败: {e}", exc_info=True)
-            QMessageBox.critical(self, "错误", f"重置配置时发生错误: {str(e)}")
+            QMessageBox.critical(self, "Error", f"An error occurred while resetting configuration: {str(e)}")
 
     def _restart_application(self):
         """

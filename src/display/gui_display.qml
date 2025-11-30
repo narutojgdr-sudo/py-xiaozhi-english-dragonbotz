@@ -118,7 +118,7 @@ Rectangle {
 
                     Text {
                         anchors.centerIn: parent
-                        text: displayModel ? displayModel.statusText : "状态: 未连接"
+                        text: displayModel ? displayModel.statusText : "Status: Disconnected"
                         font.family: "PingFang SC, Microsoft YaHei UI"
                         font.pixelSize: 14
                         font.weight: Font.Bold
@@ -211,7 +211,7 @@ Rectangle {
                     Text {
                         anchors.fill: parent
                         anchors.margins: 10
-                        text: displayModel ? displayModel.ttsText : "待命"
+                        text: displayModel ? displayModel.ttsText : "Idle"
                         font.family: "PingFang SC, Microsoft YaHei UI"
                         font.pixelSize: 13
                         color: "#555555"
@@ -243,7 +243,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 140
                     Layout.preferredHeight: 38
-                    text: "按住后说话"
+                    text: "Hold to Speak"
                     visible: displayModel ? !displayModel.autoMode : true
 
                     background: Rectangle {
@@ -263,8 +263,8 @@ Rectangle {
                         elide: Text.ElideRight
                     }
 
-                    onPressed: { manualBtn.text = "松开以停止"; root.manualButtonPressed() }
-                    onReleased: { manualBtn.text = "按住后说话"; root.manualButtonReleased() }
+                    onPressed: { manualBtn.text = "Release to Stop"; root.manualButtonPressed() }
+                    onReleased: { manualBtn.text = "Hold to Speak"; root.manualButtonReleased() }
                 }
 
                 // 自动模式按钮 - 主色
@@ -274,7 +274,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 140
                     Layout.preferredHeight: 38
-                    text: displayModel ? displayModel.buttonText : "开始对话"
+                    text: displayModel ? displayModel.buttonText : "Start Conversation"
                     visible: displayModel ? displayModel.autoMode : false
 
                     background: Rectangle {
@@ -302,7 +302,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 120
                     Layout.preferredHeight: 38
-                    text: "打断对话"
+                    text: "Interrupt"
 
                     background: Rectangle { color: abortBtn.pressed ? "#e5e6eb" : (abortBtn.hovered ? "#f2f3f5" : "#eceff3"); radius: 8 }
                     contentItem: Text {
@@ -345,7 +345,7 @@ Rectangle {
                             clip: true
 
                             // 占位符
-                            Text { anchors.fill: parent; text: "输入文字..."; font: textInput.font; color: "#c9cdd4"; verticalAlignment: Text.AlignVCenter; visible: !textInput.text && !textInput.activeFocus }
+                            Text { anchors.fill: parent; text: "Type a message..."; font: textInput.font; color: "#c9cdd4"; verticalAlignment: Text.AlignVCenter; visible: !textInput.text && !textInput.activeFocus }
 
                             Keys.onReturnPressed: { if (textInput.text.trim().length > 0) { root.sendButtonClicked(textInput.text); textInput.text = "" } }
                         }
@@ -356,7 +356,7 @@ Rectangle {
                         Layout.preferredWidth: 60
                         Layout.maximumWidth: 84
                         Layout.preferredHeight: 38
-                        text: "发送"
+                        text: "Send"
                         background: Rectangle { color: sendBtn.pressed ? "#0e42d2" : (sendBtn.hovered ? "#4080ff" : "#165dff"); radius: 8 }
                         contentItem: Text {
                             text: sendBtn.text
@@ -377,7 +377,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 120
                     Layout.preferredHeight: 38
-                    text: displayModel ? displayModel.modeText : "手动对话"
+                    text: displayModel ? displayModel.modeText : "Manual"
                     background: Rectangle { color: modeBtn.pressed ? "#e5e6eb" : (modeBtn.hovered ? "#f2f3f5" : "#eceff3"); radius: 8 }
                     contentItem: Text {
                         text: modeBtn.text
@@ -398,7 +398,7 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 120
                     Layout.preferredHeight: 38
-                    text: "参数配置"
+                    text: "Settings"
                     background: Rectangle { color: settingsBtn.pressed ? "#e5e6eb" : (settingsBtn.hovered ? "#f2f3f5" : "#eceff3"); radius: 8 }
                     contentItem: Text {
                         text: settingsBtn.text

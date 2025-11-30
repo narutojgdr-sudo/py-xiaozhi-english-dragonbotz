@@ -32,11 +32,11 @@ class GuiDisplayModel(QObject):
         super().__init__(parent)
 
         # 私有属性
-        self._status_text = "状态: 未连接"
+        self._status_text = "Status: Disconnected"
         self._emotion_path = ""  # 表情资源路径（GIF/图片）或 emoji 字符
-        self._tts_text = "待命"
-        self._button_text = "开始对话"  # 自动模式按钮文本
-        self._mode_text = "手动对话"  # 模式切换按钮文本
+        self._tts_text = "Idle"
+        self._button_text = "Start Conversation"  # 自动模式按钮文本
+        self._mode_text = "Manual"  # 模式切换按钮文本
         self._auto_mode = False  # 是否自动模式
         self._is_connected = False
 
@@ -111,7 +111,12 @@ class GuiDisplayModel(QObject):
         """
         更新状态文本和连接状态.
         """
-        self.statusText = f"状态: {status}"
+        # Keep format "Status: <status>" for English UI; callers may pass either English or Chinese status strings
+        # If caller already formats with a prefix, avoid double-prefixing.
+        if status.startswith("状态:") or status.startswith("Status:"):
+            self.statusText = status
+        else:
+            self.statusText = f"Status: {status}"
         self._is_connected = connected
 
     def update_text(self, text: str):
@@ -144,6 +149,6 @@ class GuiDisplayModel(QObject):
         """
         self.autoMode = is_auto
         if is_auto:
-            self.modeText = "自动对话"
+            self.modeText = "Auto"
         else:
-            self.modeText = "手动对话"
+            self.modeText = "Manual"

@@ -190,9 +190,9 @@ class CameraWidget(QWidget):
             if not available_cameras:
                 QMessageBox.information(
                     self,
-                    "扫描结果",
-                    "未检测到可用的摄像头设备。\n"
-                    "请确保摄像头已连接并且没有被其他程序占用。",
+                    "Scan Results",
+                    "No available camera devices were detected.\n"
+                    "Please ensure the camera is connected and not in use by another application.",
                 )
                 return
 
@@ -202,9 +202,9 @@ class CameraWidget(QWidget):
                 self._apply_camera_settings(camera)
                 QMessageBox.information(
                     self,
-                    "设置完成",
-                    f"检测到1个摄像头，已自动设置:\n"
-                    f"索引: {camera[0]}, 分辨率: {camera[1]}x{camera[2]}",
+                    "Setup Complete",
+                    f"Detected 1 camera and applied settings automatically:\n"
+                    f"Index: {camera[0]}, Resolution: {camera[1]}x{camera[2]}",
                 )
             else:
                 # 多个摄像头时显示选择对话框
@@ -213,9 +213,9 @@ class CameraWidget(QWidget):
                     self._apply_camera_settings(selected_camera)
                     QMessageBox.information(
                         self,
-                        "设置完成",
-                        f"已设置摄像头:\n"
-                        f"索引: {selected_camera[0]}, 分辨率: {selected_camera[1]}x{selected_camera[2]}",
+                        "Setup Complete",
+                        f"Camera set:\n"
+                        f"Index: {selected_camera[0]}, Resolution: {selected_camera[1]}x{selected_camera[2]}",
                     )
 
             # 恢复预览状态
@@ -223,8 +223,8 @@ class CameraWidget(QWidget):
                 QTimer.singleShot(500, self._start_preview)
 
         except Exception as e:
-            self.logger.error(f"扫描摄像头失败: {e}", exc_info=True)
-            QMessageBox.warning(self, "错误", f"扫描摄像头时发生错误: {str(e)}")
+            self.logger.error(f"Scanning cameras failed: {e}", exc_info=True)
+            QMessageBox.warning(self, "Error", f"Error scanning cameras: {str(e)}")
 
     def _scan_available_cameras(self, max_devices: int = 5):
         """
@@ -266,24 +266,24 @@ class CameraWidget(QWidget):
         """
         try:
             dialog = QDialog(self)
-            dialog.setWindowTitle("选择摄像头")
+            dialog.setWindowTitle("Select Camera")
             dialog.setFixedSize(400, 300)
 
             layout = QVBoxLayout(dialog)
 
-            # 标题标签
+            # Title label
             title_label = QLabel(
-                f"检测到 {len(available_cameras)} 个可用摄像头，请选择一个:"
+                f"Detected {len(available_cameras)} available cameras — please select one:"
             )
             title_label.setStyleSheet("font-weight: bold; margin-bottom: 10px;")
             layout.addWidget(title_label)
 
-            # 摄像头列表
+            # Camera list
             camera_list = QListWidget()
             for idx, width, height in available_cameras:
-                item_text = f"索引 {idx}: 分辨率 {width}x{height}"
+                item_text = f"Index {idx}: Resolution {width}x{height}"
                 item = QListWidgetItem(item_text)
-                item.setData(Qt.UserRole, (idx, width, height))  # 存储摄像头数据
+                item.setData(Qt.UserRole, (idx, width, height))  # store camera data
                 camera_list.addItem(item)
 
             # 默认选择第一个

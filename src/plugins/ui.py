@@ -10,11 +10,11 @@ class UIPlugin(Plugin):
     name = "ui"
     priority = 60  # UI 需要在其他插件完成后初始化
 
-    # 设备状态文本映射
+    # Device state text map (user-visible)
     STATE_TEXT_MAP = {
-        DeviceState.IDLE: "待命",
-        DeviceState.LISTENING: "聆听中...",
-        DeviceState.SPEAKING: "说话中...",
+        DeviceState.IDLE: "Idle",
+        DeviceState.LISTENING: "Listening...",
+        DeviceState.SPEAKING: "Speaking...",
     }
 
     def __init__(self, mode: Optional[str] = None) -> None:

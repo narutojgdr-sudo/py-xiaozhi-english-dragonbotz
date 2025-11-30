@@ -36,59 +36,59 @@ class ShortcutsSettingsWidget(QWidget):
         """
         layout = QVBoxLayout()
 
-        # 启用快捷键选项
-        self.enable_checkbox = QCheckBox("启用全局快捷键")
+        # Enable global shortcuts option
+        self.enable_checkbox = QCheckBox("Enable global shortcuts")
         self.enable_checkbox.setChecked(self.shortcuts_config.get("ENABLED", True))
         self.enable_checkbox.toggled.connect(self.on_settings_changed)
         layout.addWidget(self.enable_checkbox)
 
-        # 快捷键配置组
-        shortcuts_group = QGroupBox("快捷键配置")
+        # Shortcuts configuration group
+        shortcuts_group = QGroupBox("Shortcuts")
         shortcuts_layout = QVBoxLayout()
 
         # 创建各个快捷键配置控件
         self.shortcut_widgets = {}
 
-        # 按住说话
+        # Hold-to-speak
         self.shortcut_widgets["MANUAL_PRESS"] = self.create_shortcut_config(
-            "按住说话", self.shortcuts_config.get("MANUAL_PRESS", {})
+            "Hold to Speak", self.shortcuts_config.get("MANUAL_PRESS", {})
         )
         shortcuts_layout.addWidget(self.shortcut_widgets["MANUAL_PRESS"])
 
-        # 自动对话
+        # Auto conversation toggle
         self.shortcut_widgets["AUTO_TOGGLE"] = self.create_shortcut_config(
-            "自动对话", self.shortcuts_config.get("AUTO_TOGGLE", {})
+            "Auto Conversation", self.shortcuts_config.get("AUTO_TOGGLE", {})
         )
         shortcuts_layout.addWidget(self.shortcut_widgets["AUTO_TOGGLE"])
 
-        # 中断对话
+        # Abort conversation
         self.shortcut_widgets["ABORT"] = self.create_shortcut_config(
-            "中断对话", self.shortcuts_config.get("ABORT", {})
+            "Abort Conversation", self.shortcuts_config.get("ABORT", {})
         )
         shortcuts_layout.addWidget(self.shortcut_widgets["ABORT"])
 
-        # 模式切换
+        # Mode toggle
         self.shortcut_widgets["MODE_TOGGLE"] = self.create_shortcut_config(
-            "模式切换", self.shortcuts_config.get("MODE_TOGGLE", {})
+            "Mode Toggle", self.shortcuts_config.get("MODE_TOGGLE", {})
         )
         shortcuts_layout.addWidget(self.shortcut_widgets["MODE_TOGGLE"])
 
-        # 窗口显示/隐藏
+        # Window show/hide
         self.shortcut_widgets["WINDOW_TOGGLE"] = self.create_shortcut_config(
-            "窗口显示/隐藏", self.shortcuts_config.get("WINDOW_TOGGLE", {})
+            "Window Toggle", self.shortcuts_config.get("WINDOW_TOGGLE", {})
         )
         shortcuts_layout.addWidget(self.shortcut_widgets["WINDOW_TOGGLE"])
 
         shortcuts_group.setLayout(shortcuts_layout)
         layout.addWidget(shortcuts_group)
 
-        # 按钮区域
+        # Buttons
         btn_layout = QHBoxLayout()
-        self.reset_btn = QPushButton("恢复默认")
+        self.reset_btn = QPushButton("Reset to Defaults")
         self.reset_btn.clicked.connect(self.reset_to_defaults)
         btn_layout.addWidget(self.reset_btn)
 
-        self.apply_btn = QPushButton("应用")
+        self.apply_btn = QPushButton("Apply")
         self.apply_btn.clicked.connect(self.apply_settings)
         btn_layout.addWidget(self.apply_btn)
 

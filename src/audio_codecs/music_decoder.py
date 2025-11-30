@@ -82,7 +82,9 @@ class MusicDecoder:
             return False
 
     async def _read_pcm_stream(self, output_queue: asyncio.Queue):
-        """读取 PCM 流并写入队列,使用队列占用率 + 时间兜底的双重限速策略."""
+        """
+        读取 PCM 流并写入队列,使用队列占用率 + 时间兜底的双重限速策略.
+        """
         import time
 
         frame_duration_ms = AudioConfig.FRAME_DURATION

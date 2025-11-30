@@ -77,9 +77,9 @@ class SystemTray(QObject):
             try:
                 from PyQt5.QtCore import QTimer
 
-                QTimer.singleShot(0, lambda: self.update_status("待命", connected=True))
+                QTimer.singleShot(0, lambda: self.update_status("Idle", connected=True))
             except Exception:
-                self.update_status("待命", connected=True)
+                self.update_status("Idle", connected=True)
 
             # 显示系统托盘图标
             self.tray_icon.show()
@@ -95,7 +95,7 @@ class SystemTray(QObject):
         self.tray_menu = QMenu()
 
         # 添加显示主窗口菜单项
-        show_action = QAction("显示主窗口", self.parent_widget)
+        show_action = QAction("Show Main Window", self.parent_widget)
         show_action.triggered.connect(self._on_show_window)
         self.tray_menu.addAction(show_action)
 
@@ -103,7 +103,7 @@ class SystemTray(QObject):
         self.tray_menu.addSeparator()
 
         # 添加设置菜单项
-        settings_action = QAction("参数配置", self.parent_widget)
+        settings_action = QAction("Settings", self.parent_widget)
         settings_action.triggered.connect(self._on_settings)
         self.tray_menu.addAction(settings_action)
 
@@ -111,7 +111,7 @@ class SystemTray(QObject):
         self.tray_menu.addSeparator()
 
         # 添加退出菜单项
-        quit_action = QAction("退出程序", self.parent_widget)
+        quit_action = QAction("Quit", self.parent_widget)
         quit_action.triggered.connect(self._on_quit)
         self.tray_menu.addAction(quit_action)
 
@@ -171,7 +171,7 @@ class SystemTray(QObject):
             self.tray_icon.setIcon(QIcon(pixmap))
 
             # 设置提示文本
-            tooltip = f"小智AI助手 - {status}"
+            tooltip = f"XiaoZhi AI Assistant - {status}"
             self.tray_icon.setToolTip(tooltip)
 
         except Exception as e:
@@ -190,11 +190,12 @@ class SystemTray(QObject):
         if not connected:
             return QColor(128, 128, 128)  # 灰色 - 未连接
 
-        if "错误" in status:
+        # Support both English and Chinese status keywords for coloring
+        if "错误" in status or "Error" in status:
             return QColor(255, 0, 0)  # 红色 - 错误状态
-        elif "聆听中" in status:
+        elif "聆听中" in status or "Listening" in status:
             return QColor(255, 200, 0)  # 黄色 - 聆听中状态
-        elif "说话中" in status:
+        elif "说话中" in status or "Speaking" in status:
             return QColor(0, 120, 255)  # 蓝色 - 说话中状态
         else:
             return QColor(0, 180, 0)  # 绿色 - 待命/已启动状态

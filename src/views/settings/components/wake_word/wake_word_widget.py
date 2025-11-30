@@ -380,12 +380,13 @@ class WakeWordWidget(QWidget):
                 f.write("\n".join(processed_lines) + "\n")
 
             self.logger.info(
-                f"成功保存 {len(processed_lines)} 个关键词到 {keywords_file}"
+                f"Saved {len(processed_lines)} keywords to {keywords_file}"
             )
             QMessageBox.information(
                 self,
-                "保存成功",
-                f"成功保存 {len(processed_lines)} 个唤醒词\n\n" f"已自动转换为拼音格式",
+                "Save Successful",
+                f"Successfully saved {len(processed_lines)} wake words\n\n"
+                f"Automatically converted to pinyin format",
             )
 
         except Exception as e:

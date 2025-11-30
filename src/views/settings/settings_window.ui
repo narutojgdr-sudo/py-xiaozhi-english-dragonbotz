@@ -16,9 +16,9 @@
     <height>400</height>
    </size>
   </property>
-  <property name="windowTitle">
-   <string>参数配置</string>
-  </property>
+    <property name="windowTitle">
+     <string>Settings</string>
+    </property>
   <property name="modal">
    <bool>true</bool>
   </property>
@@ -29,9 +29,9 @@
       <number>0</number>
      </property>
      <widget class="QWidget" name="system_tab">
-      <attribute name="title">
-       <string>系统选项</string>
-      </attribute>
+    <attribute name="title">
+     <string>System</string>
+    </attribute>
       <layout class="QVBoxLayout" name="system_layout">
        <item>
         <widget class="QScrollArea" name="system_scroll">
@@ -56,9 +56,9 @@
            </property>
            <item row="0" column="0">
             <widget class="QLabel" name="client_id_label">
-             <property name="text">
-              <string>客户端ID:</string>
-             </property>
+              <property name="text">
+               <string>Client ID:</string>
+              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
              </property>
@@ -73,9 +73,9 @@
            </item>
            <item row="1" column="0">
             <widget class="QLabel" name="device_id_label">
-             <property name="text">
-              <string>设备ID:</string>
-             </property>
+              <property name="text">
+               <string>Device ID:</string>
+              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
              </property>
@@ -91,7 +91,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="ota_url_label">
              <property name="text">
-              <string>OTA版本URL:</string>
+              <string>OTA Version URL:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -130,7 +130,7 @@
            <item row="5" column="0">
             <widget class="QLabel" name="authorization_url_label">
              <property name="text">
-              <string>授权URL:</string>
+              <string>Authorization URL:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -143,7 +143,7 @@
            <item row="6" column="0">
             <widget class="QLabel" name="activation_version_label">
              <property name="text">
-              <string>激活版本:</string>
+              <string>Activation Version:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -167,7 +167,7 @@
            <item row="7" column="0" colspan="2">
             <widget class="QGroupBox" name="mqtt_group">
              <property name="title">
-              <string>MQTT配置</string>
+              <string>MQTT Settings</string>
              </property>
              <layout class="QFormLayout" name="mqtt_form">
               <property name="labelAlignment">
@@ -179,7 +179,7 @@
               <item row="0" column="0">
                <widget class="QLabel" name="mqtt_endpoint_label">
                 <property name="text">
-                 <string>端点:</string>
+                 <string>Endpoint:</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -191,9 +191,9 @@
               </item>
               <item row="1" column="0">
                <widget class="QLabel" name="mqtt_client_id_label">
-                <property name="text">
-                 <string>客户端ID:</string>
-                </property>
+                 <property name="text">
+                  <string>Client ID:</string>
+                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
                 </property>
@@ -204,9 +204,9 @@
               </item>
               <item row="2" column="0">
                <widget class="QLabel" name="mqtt_username_label">
-                <property name="text">
-                 <string>用户名:</string>
-                </property>
+                 <property name="text">
+                  <string>Username:</string>
+                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
                 </property>
@@ -217,9 +217,9 @@
               </item>
               <item row="3" column="0">
                <widget class="QLabel" name="mqtt_password_label">
-                <property name="text">
-                 <string>密码:</string>
-                </property>
+                 <property name="text">
+                  <string>Password:</string>
+                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
                 </property>
@@ -235,7 +235,7 @@
               <item row="4" column="0">
                <widget class="QLabel" name="mqtt_publish_topic_label">
                 <property name="text">
-                 <string>发布主题:</string>
+                 <string>Publish Topic:</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -248,7 +248,7 @@
               <item row="5" column="0">
                <widget class="QLabel" name="mqtt_subscribe_topic_label">
                 <property name="text">
-                 <string>订阅主题:</string>
+                 <string>Subscription Topic:</string>
                 </property>
                 <property name="alignment">
                  <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -268,9 +268,9 @@
       </layout>
      </widget>
      <widget class="QWidget" name="wake_word_tab">
-      <attribute name="title">
-       <string>唤醒词</string>
-      </attribute>
+    <attribute name="title">
+     <string>Wake Words</string>
+    </attribute>
       <layout class="QVBoxLayout" name="wake_word_layout">
        <item>
         <widget class="QScrollArea" name="wake_word_scroll">
@@ -296,7 +296,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="use_wake_word_label">
              <property name="text">
-              <string>启用唤醒词:</string>
+              <string>Enable Wake Word:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -309,7 +309,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="model_path_label">
              <property name="text">
-              <string>模型路径:</string>
+              <string>Model Path:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -324,7 +324,7 @@
              <item>
               <widget class="QPushButton" name="model_path_btn">
                <property name="text">
-                <string>浏览</string>
+                <string>Browse</string>
                </property>
               </widget>
              </item>
@@ -333,7 +333,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="wake_words_label">
              <property name="text">
-              <string>唤醒词列表:</string>
+              <string>Wake Words List:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignTop</set>
@@ -351,14 +351,14 @@
                 </size>
                </property>
                <property name="placeholderText">
-                <string>每行一个唤醒词</string>
+                <string>One wake word per line</string>
                </property>
               </widget>
              </item>
              <item>
               <widget class="QLabel" name="wake_words_hint">
                <property name="text">
-                <string>提示: 每行输入一个唤醒词，如"小智"、"小美"</string>
+                <string>Hint: Enter one wake word per line, e.g. 'XiaoZhi', 'XiaoMei'</string>
                </property>
                <property name="styleSheet">
                 <string>color: #666; font-size: 11px;</string>
@@ -374,9 +374,9 @@
       </layout>
      </widget>
      <widget class="QWidget" name="camera_tab">
-      <attribute name="title">
-       <string>摄像头</string>
-      </attribute>
+    <attribute name="title">
+     <string>Camera</string>
+    </attribute>
       <layout class="QVBoxLayout" name="camera_layout">
        <item>
         <widget class="QScrollArea" name="camera_scroll">
@@ -402,7 +402,7 @@
            <item row="0" column="0">
             <widget class="QLabel" name="camera_index_label">
              <property name="text">
-              <string>摄像头索引:</string>
+              <string>Camera Index:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -422,7 +422,7 @@
            <item row="1" column="0">
             <widget class="QLabel" name="frame_width_label">
              <property name="text">
-              <string>画面宽度:</string>
+              <string>Frame Width:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -448,7 +448,7 @@
            <item row="2" column="0">
             <widget class="QLabel" name="frame_height_label">
              <property name="text">
-              <string>画面高度:</string>
+              <string>Frame Height:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -474,7 +474,7 @@
            <item row="3" column="0">
             <widget class="QLabel" name="fps_label">
              <property name="text">
-              <string>帧率:</string>
+              <string>FPS:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -497,7 +497,7 @@
            <item row="4" column="0">
             <widget class="QLabel" name="local_vl_url_label">
              <property name="text">
-              <string>本地VL URL:</string>
+              <string>Local VL URL:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -527,7 +527,7 @@
            <item row="6" column="0">
             <widget class="QLabel" name="models_label">
              <property name="text">
-              <string>模型:</string>
+              <string>Models:</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignRight|Qt::AlignVCenter</set>
@@ -560,27 +560,27 @@
        </property>
       </spacer>
      </item>
-     <item>
-      <widget class="QPushButton" name="reset_btn">
-       <property name="text">
-        <string>重置</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="save_btn">
-       <property name="text">
-        <string>保存</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="cancel_btn">
-       <property name="text">
-        <string>取消</string>
-       </property>
-      </widget>
-     </item>
+             <item>
+            <widget class="QPushButton" name="reset_btn">
+             <property name="text">
+                <string>Reset</string>
+             </property>
+            </widget>
+         </item>
+         <item>
+            <widget class="QPushButton" name="save_btn">
+             <property name="text">
+                <string>Save</string>
+             </property>
+            </widget>
+         </item>
+         <item>
+            <widget class="QPushButton" name="cancel_btn">
+             <property name="text">
+                <string>Cancel</string>
+             </property>
+            </widget>
+         </item>
     </layout>
    </item>
   </layout>
