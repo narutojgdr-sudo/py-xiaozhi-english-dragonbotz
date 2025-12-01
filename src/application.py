@@ -137,6 +137,8 @@ class Application:
             # 插件会自动按 priority 排序：
             # AudioPlugin(10) -> McpPlugin(20) -> WakeWordPlugin(30) -> CalendarPlugin(40)
             # -> IoTPlugin(50) -> UIPlugin(60) -> ShortcutsPlugin(70)
+            from src.plugins.webhook_plugin import WebhookPlugin
+
             self.plugins.register(
                 McpPlugin(),
                 IoTPlugin(),
@@ -145,6 +147,7 @@ class Application:
                 CalendarPlugin(),
                 UIPlugin(mode=mode),
                 ShortcutsPlugin(),
+                WebhookPlugin(),
             )
             await self.plugins.setup_all(self)
             # 启动后广播初始状态，确保 UI 就绪时能看到“待命”

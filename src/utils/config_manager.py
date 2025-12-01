@@ -29,6 +29,12 @@ class ConfigManager:
             # seconds before auto-stopping listening in AUTO_STOP mode
             "LISTENING_AUTO_STOP_SECONDS": 60,
         },
+        "WEBHOOKS": {
+            # URL to call when listening starts. Example: "http://example.local/hooks/listen_start"
+            "on_listening_start": None,
+            # URL to call when listening stops/returns to idle. Example: "http://example.local/hooks/listen_stop"
+            "on_listening_stop": None,
+        },
         "WAKE_WORD_OPTIONS": {
             "USE_WAKE_WORD": True,
             "MODEL_PATH": "models",
