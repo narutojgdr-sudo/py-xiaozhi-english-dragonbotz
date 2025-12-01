@@ -71,6 +71,8 @@ class WakeWordWidget(QWidget):
         self._setup_ui()
         self._connect_events()
         self._load_config_values()
+        # track whether wake words text was modified by the user (avoid overwriting file on unrelated saves)
+        self._wake_words_dirty = False
 
     def _setup_ui(self):
         """
@@ -127,6 +129,13 @@ class WakeWordWidget(QWidget):
             self.ui_controls["wake_words_edit"].textChanged.connect(
                 self.settings_changed.emit
             )
+            # mark dirty when user edits wake words
+            try:
+                self.ui_controls["wake_words_edit"].textChanged.connect(
+                    lambda: setattr(self, "_wake_words_dirty", True)
+                )
+            except Exception:
+                pass
         if self.ui_controls.get("listening_webhook_edit"):
             self.ui_controls["listening_webhook_edit"].textChanged.connect(
                 self.settings_changed.emit
@@ -157,6 +166,11 @@ class WakeWordWidget(QWidget):
             wake_words_text = self._load_keywords_from_file()
             if self.ui_controls["wake_words_edit"]:
                 self.ui_controls["wake_words_edit"].setPlainText(wake_words_text)
+                # freshly loaded from file => not dirty
+                try:
+                    self._wake_words_dirty = False
+                except Exception:
+                    pass
 
             # Webhook URLs
             try:
@@ -410,6 +424,12 @@ class WakeWordWidget(QWidget):
                 f"Automatically converted to pinyin format",
             )
 
+            # mark as saved
+            try:
+                self._wake_words_dirty = False
+            except Exception:
+                pass
+
         except Exception as e:
             self.logger.error(f"保存关键词文件失败: {e}")
             QMessageBox.warning(self, "错误", f"保存关键词失败: {str(e)}")
@@ -456,6 +476,13 @@ class WakeWordWidget(QWidget):
             wake_words_text = self.ui_controls["wake_words_edit"].toPlainText().strip()
             self._save_keywords_to_file(wake_words_text)
 
+    def has_wake_words_changed(self) -> bool:
+        """Return True if user edited wake words since last load/save."""
+        try:
+            return bool(getattr(self, "_wake_words_dirty", False))
+        except Exception:
+            return False
+
     def reset_to_defaults(self):
         """
         重置为默认值.
@@ -477,6 +504,12 @@ class WakeWordWidget(QWidget):
                 # 使用默认的关键词重置
                 default_keywords = self._get_default_keywords()
                 self.ui_controls["wake_words_edit"].setPlainText(default_keywords)
+
+            # reset dirty flag
+            try:
+                self._wake_words_dirty = False
+            except Exception:
+                pass
 
             # reset webhooks to defaults
             try:

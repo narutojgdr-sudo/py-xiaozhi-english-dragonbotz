@@ -187,8 +187,13 @@ class SettingsWindow(QDialog):
             if self.wake_word_tab:
                 wake_word_config = self.wake_word_tab.get_config_data()
                 all_config_data.update(wake_word_config)
-                # 保存唤醒词文件
-                self.wake_word_tab.save_keywords()
+                # 保存唤醒词文件  — only save if user actually edited the wake words
+                try:
+                    if getattr(self.wake_word_tab, "has_wake_words_changed", None) and self.wake_word_tab.has_wake_words_changed():
+                        self.wake_word_tab.save_keywords()
+                except Exception:
+                    # fallback: do not overwrite keywords file on save if detection fails
+                    pass
 
             # 摄像头配置
             if self.camera_tab:
