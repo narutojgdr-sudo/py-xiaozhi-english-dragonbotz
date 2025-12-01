@@ -99,8 +99,6 @@ class WakeWordWidget(QWidget):
                 "model_path_edit": self.findChild(QLineEdit, "model_path_edit"),
                 "model_path_btn": self.findChild(QPushButton, "model_path_btn"),
                 "wake_words_edit": self.findChild(QTextEdit, "wake_words_edit"),
-                "webhook_start_edit": self.findChild(QLineEdit, "webhook_start_edit"),
-                "webhook_stop_edit": self.findChild(QLineEdit, "webhook_stop_edit"),
             }
         )
 
@@ -128,16 +126,6 @@ class WakeWordWidget(QWidget):
                 self.settings_changed.emit
             )
 
-        # webhook URL edits
-        if self.ui_controls.get("webhook_start_edit"):
-            self.ui_controls["webhook_start_edit"].textChanged.connect(
-                self.settings_changed.emit
-            )
-        if self.ui_controls.get("webhook_stop_edit"):
-            self.ui_controls["webhook_stop_edit"].textChanged.connect(
-                self.settings_changed.emit
-            )
-
     def _load_config_values(self):
         """
         从配置文件加载值到UI控件.
@@ -159,17 +147,6 @@ class WakeWordWidget(QWidget):
             wake_words_text = self._load_keywords_from_file()
             if self.ui_controls["wake_words_edit"]:
                 self.ui_controls["wake_words_edit"].setPlainText(wake_words_text)
-
-            # Webhook URLs
-            try:
-                start_url = self.config_manager.get_config("WEBHOOKS.on_listening_start", "")
-                stop_url = self.config_manager.get_config("WEBHOOKS.on_listening_stop", "")
-                if self.ui_controls.get("webhook_start_edit"):
-                    self.ui_controls["webhook_start_edit"].setText(start_url or "")
-                if self.ui_controls.get("webhook_stop_edit"):
-                    self.ui_controls["webhook_stop_edit"].setText(stop_url or "")
-            except Exception:
-                self.logger.debug("Failed to load webhook config values", exc_info=True)
 
         except Exception as e:
             self.logger.error(f"加载唤醒词配置值失败: {e}", exc_info=True)
@@ -434,17 +411,6 @@ class WakeWordWidget(QWidget):
                 relative_path = self._convert_to_relative_path(model_path)
                 config_data["WAKE_WORD_OPTIONS.MODEL_PATH"] = relative_path
 
-            # Webhook config
-            try:
-                if self.ui_controls.get("webhook_start_edit"):
-                    start = self.ui_controls["webhook_start_edit"].text().strip()
-                    config_data["WEBHOOKS.on_listening_start"] = start
-                if self.ui_controls.get("webhook_stop_edit"):
-                    stop = self.ui_controls["webhook_stop_edit"].text().strip()
-                    config_data["WEBHOOKS.on_listening_stop"] = stop
-            except Exception:
-                self.logger.debug("Failed to read webhook values from UI", exc_info=True)
-
         except Exception as e:
             self.logger.error(f"获取唤醒词配置数据失败: {e}", exc_info=True)
 
@@ -479,18 +445,6 @@ class WakeWordWidget(QWidget):
                 # 使用默认的关键词重置
                 default_keywords = self._get_default_keywords()
                 self.ui_controls["wake_words_edit"].setPlainText(default_keywords)
-
-            # reset webhooks to defaults
-            try:
-                webhooks = default_config.get("WEBHOOKS", {})
-                start = webhooks.get("on_listening_start", "")
-                stop = webhooks.get("on_listening_stop", "")
-                if self.ui_controls.get("webhook_start_edit"):
-                    self.ui_controls["webhook_start_edit"].setText(start)
-                if self.ui_controls.get("webhook_stop_edit"):
-                    self.ui_controls["webhook_stop_edit"].setText(stop)
-            except Exception:
-                self.logger.debug("Failed to reset webhook defaults", exc_info=True)
 
             self.logger.info("唤醒词配置已重置为默认值")
 

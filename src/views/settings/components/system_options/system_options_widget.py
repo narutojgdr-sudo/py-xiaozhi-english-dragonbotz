@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QCheckBox, QComboBox, QLineEdit, QWidget
+from PyQt5.QtWidgets import QCheckBox, QComboBox, QLineEdit, QWidget, QSpinBox
 
 from src.utils.config_manager import ConfigManager
 from src.utils.logging_config import get_logger
@@ -66,6 +66,7 @@ class SystemOptionsWidget(QWidget):
                     QComboBox, "activation_version_combo"
                 ),
                 "window_size_combo": self.findChild(QComboBox, "window_size_combo"),
+                "listening_auto_stop_spin": self.findChild(QSpinBox, "listening_auto_stop_spin"),
             }
         )
 
@@ -89,7 +90,6 @@ class SystemOptionsWidget(QWidget):
         self.ui_controls.update(
             {
                 "aec_enabled_check": self.findChild(QCheckBox, "aec_enabled_check"),
-                "listening_auto_stop_edit": self.findChild(QLineEdit, "listening_auto_stop_edit"),
             }
         )
 
@@ -105,6 +105,8 @@ class SystemOptionsWidget(QWidget):
                 control.currentTextChanged.connect(self.settings_changed.emit)
             elif isinstance(control, QCheckBox):
                 control.stateChanged.connect(self.settings_changed.emit)
+            elif isinstance(control, QSpinBox):
+                control.valueChanged.connect(self.settings_changed.emit)
 
     def _load_config_values(self):
         """
@@ -188,15 +190,15 @@ class SystemOptionsWidget(QWidget):
             aec_enabled = self.config_manager.get_config("AEC_OPTIONS.ENABLED", True)
             self._set_check_value("aec_enabled_check", aec_enabled)
 
-            # Force listening mode (optional)
-
-
             # Listening auto-stop seconds
             auto_stop = self.config_manager.get_config(
                 "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS", 60
             )
-            if self.ui_controls.get("listening_auto_stop_edit"):
-                self._set_text_value("listening_auto_stop_edit", str(auto_stop))
+            try:
+                if self.ui_controls.get("listening_auto_stop_spin"):
+                    self.ui_controls["listening_auto_stop_spin"].setValue(int(auto_stop))
+            except Exception:
+                pass
 
         except Exception as e:
             self.logger.error(f"加载系统选项配置值失败: {e}", exc_info=True)
@@ -331,25 +333,15 @@ class SystemOptionsWidget(QWidget):
             aec_enabled = self._get_check_value("aec_enabled_check")
             config_data["AEC_OPTIONS.ENABLED"] = aec_enabled
 
-            # (No force listening mode UI anymore)
-
             # Listening auto-stop seconds
             try:
-                if self.ui_controls.get("listening_auto_stop_edit"):
-                    val = self._get_text_value("listening_auto_stop_edit")
-                    if val:
-                        # sanitize to int
-                        try:
-                            secs = int(val)
-                            if secs < 0:
-                                secs = 0
-                        except Exception:
-                            secs = 60
-                        config_data[
-                            "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS"
-                        ] = secs
+                if self.ui_controls.get("listening_auto_stop_spin"):
+                    val = int(self.ui_controls["listening_auto_stop_spin"].value())
+                    config_data[
+                        "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS"
+                    ] = val
             except Exception:
-                self.logger.debug("Failed to read listening_auto_stop_edit", exc_info=True)
+                pass
 
         except Exception as e:
             self.logger.error(f"获取系统选项配置数据失败: {e}", exc_info=True)
@@ -394,6 +386,18 @@ class SystemOptionsWidget(QWidget):
             self._set_check_value(
                 "aec_enabled_check", default_aec.get("ENABLED", False)
             )
+
+            # Listening auto-stop default
+            try:
+                default_auto = default_config.get("SYSTEM_OPTIONS", {}).get(
+                    "LISTENING_AUTO_STOP_SECONDS", 60
+                )
+                if self.ui_controls.get("listening_auto_stop_spin"):
+                    self.ui_controls["listening_auto_stop_spin"].setValue(
+                        int(default_auto)
+                    )
+            except Exception:
+                pass
 
             self.logger.info("系统选项配置已重置为默认值")
 

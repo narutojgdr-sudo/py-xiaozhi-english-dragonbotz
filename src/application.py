@@ -39,10 +39,6 @@ from src.protocols.websocket_protocol import WebsocketProtocol
 from src.utils.config_manager import ConfigManager
 from src.utils.logging_config import get_logger
 from src.utils.opus_loader import setup_opus
-import json
-import time
-import urllib.request
-import urllib.error
 
 logger = get_logger(__name__)
 setup_opus()
@@ -91,6 +87,11 @@ class Application:
             ListeningMode.REALTIME if self.aec_enabled else ListeningMode.AUTO_STOP
         )
         self.keep_listening = False
+        # auto-stop timeout (seconds) — configurable via config: SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS
+        try:
+            self.auto_stop_seconds = int(self.config.get_config("SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS", 60))
+        except Exception:
+            self.auto_stop_seconds = 60
         # task for auto-stop when in AUTO_STOP mode
         self._auto_stop_task: asyncio.Task | None = None
 
@@ -154,13 +155,6 @@ class Application:
             # await self.connect_protocol()
             # 插件：start
             await self.plugins.start_all()
-            # Ensure app starts in IDLE state after plugins start so UI shows
-            # a consistent idle initial state.
-            try:
-                await self.set_device_state(DeviceState.IDLE)
-            except Exception:
-                logger.debug("Failed to set initial IDLE state", exc_info=True)
-
             # 等待关停
             await self._wait_shutdown()
             return 0
@@ -262,20 +256,10 @@ class Application:
             ok = await self.connect_protocol()
             if not ok:
                 return
-            # Determine listening mode: prefer explicit config override, else use AEC-based choice
-            try:
-                forced = self.config.get_config("SYSTEM_OPTIONS.FORCE_LISTENING_MODE", "")
-            except Exception:
-                forced = ""
 
-            if forced == "realtime":
-                mode = ListeningMode.REALTIME
-            elif forced == "auto_stop":
-                mode = ListeningMode.AUTO_STOP
-            else:
-                mode = (
-                    ListeningMode.REALTIME if self.aec_enabled else ListeningMode.AUTO_STOP
-                )
+            mode = (
+                ListeningMode.REALTIME if self.aec_enabled else ListeningMode.AUTO_STOP
+            )
             self.listening_mode = mode
             self.keep_listening = True
             await self.protocol.send_start_listening(mode)
@@ -437,68 +421,17 @@ class Application:
         async with self._state_lock:
             if self.device_state == state:
                 return
-            # capture previous state for stop webhook detection
-            prev_state = self.device_state
             logger.info(f"设置设备状态: {state}")
             self.device_state = state
-            # cancel any existing auto-stop task when state changes, but do
-            # not cancel if the auto-stop task is the currently running task
+            # cancel any existing auto-stop task when state changes
             try:
                 if self._auto_stop_task and not self._auto_stop_task.done():
-                    try:
-                        cur = asyncio.current_task()
-                    except Exception:
-                        cur = None
-                    if cur is not None and cur is self._auto_stop_task:
-                        # avoid cancelling the task that's currently executing
-                        logger.debug("Auto-stop task is current task; skipping cancel")
-                    else:
-                        self._auto_stop_task.cancel()
+                    self._auto_stop_task.cancel()
             except Exception:
                 pass
         # 锁外广播，避免插件回调引起潜在的长耗时阻塞
         try:
             await self.plugins.notify_device_state_changed(state)
-
-            # Webhook notifications (non-blocking): call configured URLs
-            try:
-                # on_listening_start
-                if state == DeviceState.LISTENING:
-                    start_url = self.config.get_config("WEBHOOKS.on_listening_start", "")
-                    if start_url:
-                        async def _invoke_webhook_start(url: str):
-                            try:
-                                def _do():
-                                    req = urllib.request.Request(url, data=b"", method="POST")
-                                    with urllib.request.urlopen(req, timeout=5) as resp:
-                                        _ = resp.read(1024)
-
-                                await asyncio.to_thread(_do)
-                            except Exception:
-                                logger.debug("Webhook start failed for %s", url, exc_info=True)
-
-                        self.spawn(_invoke_webhook_start(start_url), name="webhook:on_listening_start")
-
-                # on_listening_stop (previously listening -> now not listening)
-                if 'prev_state' in locals() and prev_state == DeviceState.LISTENING and state != DeviceState.LISTENING:
-                    stop_url = self.config.get_config("WEBHOOKS.on_listening_stop", "")
-                    if stop_url:
-                        async def _invoke_webhook_stop(url: str):
-                            try:
-                                def _do():
-                                    req = urllib.request.Request(url, data=b"", method="POST")
-                                    with urllib.request.urlopen(req, timeout=5) as resp:
-                                        _ = resp.read(1024)
-
-                                await asyncio.to_thread(_do)
-                            except Exception:
-                                logger.debug("Webhook stop failed for %s", url, exc_info=True)
-
-                        self.spawn(_invoke_webhook_stop(stop_url), name="webhook:on_listening_stop")
-            except Exception:
-                # swallow webhook errors to avoid impacting device state flow
-                logger.debug("Webhook invocation encountered an error", exc_info=True)
-
             if state == DeviceState.LISTENING:
                 # Play a short 'ready' SFX to indicate listening started.
                 try:
@@ -507,60 +440,26 @@ class Application:
                     logger.debug("Failed to play listening sfx", exc_info=True)
                 await asyncio.sleep(0.5)
                 self.aborted = False
-                # Schedule an auto-stop watcher when a positive
-                # `LISTENING_AUTO_STOP_SECONDS` is configured. The watcher will
-                # fire regardless of `keep_listening` so that a configured
-                # timeout always applies (this makes the timeout honored even
-                # when AEC/realtime is enabled). A value of 0 disables auto-stop.
+                # If in AUTO_STOP mode, schedule an auto-stop after 60 seconds
                 try:
-                    try:
-                        secs = int(
-                            self.config.get_config(
-                                "SYSTEM_OPTIONS.LISTENING_AUTO_STOP_SECONDS", 60
-                            )
-                        )
-                        if secs < 0:
-                            secs = 0
-                    except Exception:
-                        secs = 60
-
-                    if secs > 0:
-                        async def _auto_stop_watch():
-                            try:
-                                await asyncio.sleep(secs)
-                                # if still listening, stop and go idle
-                                if self.device_state == DeviceState.LISTENING:
-                                    logger.info(
-                                        "Auto-stop triggered after %s seconds, stopping listening",
-                                        secs,
-                                    )
-                                    # mark that we should not keep listening
-                                    self.keep_listening = False
-                                    # try to send stop to protocol if available
-                                    try:
-                                        if self.protocol:
-                                            await self.protocol.send_stop_listening()
-                                    except Exception:
-                                        logger.debug("protocol.send_stop_listening failed", exc_info=True)
-
-                                    # transition to IDLE
-                                    try:
+                        if self.keep_listening and self.listening_mode == ListeningMode.AUTO_STOP:
+                            async def _auto_stop_watch():
+                                try:
+                                    # wait configured seconds then stop listening if still in AUTO_STOP
+                                    await asyncio.sleep(self.auto_stop_seconds)
+                                    if self.keep_listening and self.listening_mode == ListeningMode.AUTO_STOP:
+                                        await self.protocol.send_stop_listening()
+                                        self.keep_listening = False
                                         await self.set_device_state(DeviceState.IDLE)
-                                    except Exception:
-                                        logger.debug("Failed to set IDLE after auto-stop", exc_info=True)
-                            except asyncio.CancelledError:
-                                return
-                            except Exception:
-                                return
+                                except asyncio.CancelledError:
+                                    return
+                                except Exception:
+                                    return
 
                         # spawn and keep reference to allow cancellation on state changes
-                        self._auto_stop_task = asyncio.create_task(
-                            _auto_stop_watch(), name="auto_stop_watch"
-                        )
-                        logger.info("Scheduled listening auto-stop in %s seconds", secs)
+                        self._auto_stop_task = asyncio.create_task(_auto_stop_watch(), name="auto_stop_watch")
                 except Exception:
-                    # Do not let auto-stop scheduling errors affect state flow
-                    logger.debug("Failed to schedule auto-stop watcher", exc_info=True)
+                    pass
         except Exception:
             pass
 
