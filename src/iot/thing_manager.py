@@ -19,12 +19,12 @@ class ThingManager:
 
     def __init__(self):
         self.things = []
-        self.last_states = {}  # 添加状态缓存字典，存储上一次的状态
+        self.last_states = {}  # Cache the last state.
 
     async def initialize_iot_devices(self, config):
-        """初始化物联网设备.
+        """Initialize IoT devices.
 
-        注意：倒计时器功能已迁移到MCP工具中，提供更好的AI集成和状态反馈。
+        Note: Countdown timer moved to MCP tools for better AI integration and feedback.
         """
         # Load configuration to decide whether to expose virtual devices to the AI
         try:
@@ -37,12 +37,14 @@ class ThingManager:
 
         if not enable_virtual:
             # Virtual/testing devices disabled by config; do not register them.
-            logger.info("虚拟物联网设备已禁用（IOT.ENABLE_VIRTUAL_DEVICES=False）")
+            logger.info(
+                "Virtual IoT devices disabled (IOT.ENABLE_VIRTUAL_DEVICES=False)."
+            )
             return
 
         from src.iot.things.lamp import Lamp
 
-        # 添加设备
+        # Add devices.
         self.add_thing(Lamp())
 
     def add_thing(self, thing: Thing) -> None:
@@ -50,21 +52,20 @@ class ThingManager:
 
     async def get_descriptors_json(self) -> str:
         """
-        获取所有设备的描述符JSON.
+        Get descriptor JSON for all devices.
         """
-        # 由于get_descriptor_json()是同步方法（返回静态数据），
-        # 这里保持简单的同步调用即可
+        # get_descriptor_json() is synchronous (static data).
         descriptors = [thing.get_descriptor_json() for thing in self.things]
         return json.dumps(descriptors)
 
     async def get_states_json(self, delta=False) -> Tuple[bool, str]:
-        """获取所有设备的状态JSON.
+        """Get state JSON for all devices.
 
         Args:
-            delta: 是否只返回变化的部分，True表示只返回变化的部分
+            delta: True to return only changed states
 
         Returns:
-            Tuple[bool, str]: 返回是否有状态变化的布尔值和JSON字符串
+            Tuple[bool, str]: Whether states changed and JSON string
         """
         if not delta:
             self.last_states.clear()
@@ -79,7 +80,7 @@ class ThingManager:
             state_json = states_results[i]
 
             if delta:
-                # 检查状态是否变化
+                # Check if state changed.
                 is_same = (
                     thing.name in self.last_states
                     and self.last_states[thing.name] == state_json
@@ -89,35 +90,35 @@ class ThingManager:
                 changed = True
                 self.last_states[thing.name] = state_json
 
-            # 检查state_json是否已经是字典对象
+            # Ensure state_json is a dict.
             if isinstance(state_json, dict):
                 states.append(state_json)
             else:
-                states.append(json.loads(state_json))  # 转换JSON字符串为字典
+                states.append(json.loads(state_json))  # Convert JSON string to dict.
 
         return changed, json.dumps(states)
 
     async def get_states_json_str(self) -> str:
         """
-        为了兼容旧代码，保留原来的方法名和返回值类型.
+        Keep legacy method name/return type for backward compatibility.
         """
         _, json_str = await self.get_states_json(delta=False)
         return json_str
 
     async def invoke(self, command: Dict) -> Optional[Any]:
-        """调用设备方法.
+        """Invoke device methods.
 
         Args:
-            command: 包含name和method等信息的命令字典
+            command: Command dict with name and method
 
         Returns:
-            Optional[Any]: 如果找到设备并调用成功，返回调用结果；否则抛出异常
+            Optional[Any]: Invocation result if found; otherwise raises
         """
         thing_name = command.get("name")
         for thing in self.things:
             if thing.name == thing_name:
                 return await thing.invoke(command)
 
-        # 记录错误日志
-        logger.error(f"设备不存在: {thing_name}")
-        raise ValueError(f"设备不存在: {thing_name}")
+        # Log error.
+        logger.error(f"Device not found: {thing_name}")
+        raise ValueError(f"Device not found: {thing_name}")

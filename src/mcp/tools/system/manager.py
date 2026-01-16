@@ -1,6 +1,6 @@
-"""系统工具管理器.
+"""System tools manager.
 
-负责系统工具的初始化、配置和MCP工具注册
+Initializes, configures, and registers MCP system tools.
 """
 
 from typing import Any, Dict
@@ -17,60 +17,62 @@ logger = get_logger(__name__)
 
 class SystemToolsManager:
     """
-    系统工具管理器.
+    System tools manager.
     """
 
     def __init__(self):
         """
-        初始化系统工具管理器.
+        Initialize system tools manager.
         """
         self._initialized = False
-        logger.info("[SystemManager] 系统工具管理器初始化")
+        logger.info("[SystemManager] System tools manager initialized.")
 
     def init_tools(self, add_tool, PropertyList, Property, PropertyType):
         """
-        初始化并注册所有系统工具.
+        Initialize and register all system tools.
         """
         try:
-            logger.info("[SystemManager] 开始注册系统工具")
+            logger.info("[SystemManager] Registering system tools.")
 
-            # 注册音量控制工具
+            # Register volume control tool.
             self._register_volume_control_tool(
                 add_tool, PropertyList, Property, PropertyType
             )
 
-            # 注册音量获取工具
+            # Register volume get tool.
             self._register_volume_get_tool(
                 add_tool, PropertyList, Property, PropertyType
             )
 
-            # 注册应用程序启动工具
+            # Register app launch tool.
             self._register_app_launcher_tool(
                 add_tool, PropertyList, Property, PropertyType
             )
 
-            # 注册应用程序扫描工具
+            # Register app scanner tool.
             self._register_app_scanner_tool(
                 add_tool, PropertyList, Property, PropertyType
             )
 
-            # 注册应用程序关闭工具
+            # Register app close tools.
             self._register_app_killer_tools(
                 add_tool, PropertyList, Property, PropertyType
             )
 
             self._initialized = True
-            logger.info("[SystemManager] 系统工具注册完成")
+            logger.info("[SystemManager] System tools registered.")
 
         except Exception as e:
-            logger.error(f"[SystemManager] 系统工具注册失败: {e}", exc_info=True)
+            logger.error(
+                f"[SystemManager] System tool registration failed: {e}", exc_info=True
+            )
             raise
 
     def _register_volume_control_tool(
         self, add_tool, PropertyList, Property, PropertyType
     ):
         """
-        注册音量控制工具.
+        Register volume control tool.
         """
         volume_props = PropertyList(
             [Property("volume", PropertyType.INTEGER, min_value=0, max_value=100)]
@@ -80,21 +82,20 @@ class SystemToolsManager:
                 "self.audio_speaker.set_volume",
                 "Set the system speaker volume to an absolute value (0-100).\n"
                 "Use when user mentions: volume, sound, louder, quieter, mute, unmute, adjust volume.\n"
-                "Examples: 'set volume to 50', 'turn volume up', 'make it louder', 'mute', "
-                "'音量设为50', '调大声音', '声音小一点', '静音'.\n"
+                "Examples: 'set volume to 50', 'turn volume up', 'make it louder', 'mute'.\n"
                 "Parameter:\n"
                 "- volume: Integer (0-100) representing the target volume level. Set to 0 for mute.",
                 volume_props,
                 set_volume,
             )
         )
-        logger.debug("[SystemManager] 注册音量控制工具成功")
+        logger.debug("[SystemManager] Registered volume control tool.")
 
     def _register_volume_get_tool(
         self, add_tool, PropertyList, Property, PropertyType
     ):
         """
-        注册音量获取工具.
+        Register volume get tool.
         """
         get_volume_props = PropertyList([])
         add_tool(
@@ -102,21 +103,20 @@ class SystemToolsManager:
                 "self.audio_speaker.get_volume",
                 "Get the current system speaker volume level.\n"
                 "Use when user asks about: current volume, volume level, how loud, what's the volume.\n"
-                "Examples: 'what is the current volume?', 'how loud is it?', 'check volume level', "
-                "'现在音量多少?', '查看音量', '音量是多少'.\n"
+                "Examples: 'what is the current volume?', 'how loud is it?', 'check volume level'.\n"
                 "Returns:\n"
                 "- Integer (0-100) representing the current volume level.",
                 get_volume_props,
                 get_volume,
             )
         )
-        logger.debug("[SystemManager] 注册音量获取工具成功")
+        logger.debug("[SystemManager] Registered volume get tool.")
 
     def _register_app_launcher_tool(
         self, add_tool, PropertyList, Property, PropertyType
     ):
         """
-        注册应用程序启动工具.
+        Register app launch tool.
         """
         app_props = PropertyList([Property("app_name", PropertyType.STRING)])
         add_tool(
@@ -127,15 +127,14 @@ class SystemToolsManager:
                 "macOS, and Linux platforms. It automatically detects the operating "
                 "system and uses appropriate launch methods.\n"
                 "Use this tool when the user wants to:\n"
-                "1. Open specific software applications (e.g., 'QQ', 'QQ音乐', 'WeChat', '微信')\n"
-                "2. Launch system utilities (e.g., 'Calculator', '计算器', 'Notepad', '记事本')\n"
+                "1. Open specific software applications (e.g., 'QQ Music', 'WeChat')\n"
+                "2. Launch system utilities (e.g., 'Calculator', 'Notepad')\n"
                 "3. Start browsers (e.g., 'Chrome', 'Firefox', 'Safari')\n"
                 "4. Open media players (e.g., 'VLC', 'Windows Media Player')\n"
                 "5. Launch development tools (e.g., 'VS Code', 'PyCharm')\n"
                 "6. Start games or other installed programs\n\n"
                 "Examples of valid app names:\n"
-                "- Chinese: 'QQ音乐', '微信', '计算器', '记事本', '浏览器'\n"
-                "- English: 'QQ', 'WeChat', 'Calculator', 'Notepad', 'Chrome'\n"
+                "- English: 'QQ Music', 'WeChat', 'Calculator', 'Notepad', 'Chrome'\n"
                 "- Mixed: 'QQ Music', 'Microsoft Word', 'Adobe Photoshop'\n\n"
                 "The system will try multiple launch strategies including direct execution, "
                 "system commands, and path searching to find and start the application.",
@@ -143,13 +142,13 @@ class SystemToolsManager:
                 launch_application,
             )
         )
-        logger.debug("[SystemManager] 注册应用程序启动工具成功")
+        logger.debug("[SystemManager] Registered app launcher tool.")
 
     def _register_app_scanner_tool(
         self, add_tool, PropertyList, Property, PropertyType
     ):
         """
-        注册应用程序扫描工具.
+        Register app scanner tool.
         """
         scanner_props = PropertyList(
             [Property("force_refresh", PropertyType.BOOLEAN, default_value=False)]
@@ -176,15 +175,15 @@ class SystemToolsManager:
                 scan_installed_applications,
             )
         )
-        logger.debug("[SystemManager] 注册应用程序扫描工具成功")
+        logger.debug("[SystemManager] Registered app scanner tool.")
 
     def _register_app_killer_tools(
         self, add_tool, PropertyList, Property, PropertyType
     ):
         """
-        注册应用程序关闭工具.
+        Register app close tools.
         """
-        # 注册应用程序关闭工具
+        # Register app close tool.
         killer_props = PropertyList(
             [
                 Property("app_name", PropertyType.STRING),
@@ -213,7 +212,7 @@ class SystemToolsManager:
             )
         )
 
-        # 注册运行中应用程序列表工具
+        # Register running apps list tool.
         list_props = PropertyList(
             [Property("filter_name", PropertyType.STRING, default_value="")]
         )
@@ -236,17 +235,17 @@ class SystemToolsManager:
                 list_running_applications,
             )
         )
-        logger.debug("[SystemManager] 注册应用程序关闭工具成功")
+        logger.debug("[SystemManager] Registered app close tools.")
 
     def is_initialized(self) -> bool:
         """
-        检查管理器是否已初始化.
+        Check whether manager is initialized.
         """
         return self._initialized
 
     def get_status(self) -> Dict[str, Any]:
         """
-        获取管理器状态.
+        Get manager status.
         """
         available_tools = [
             "set_volume",
@@ -263,16 +262,16 @@ class SystemToolsManager:
         }
 
 
-# 全局管理器实例
+# Global manager instance.
 _system_tools_manager = None
 
 
 def get_system_tools_manager() -> SystemToolsManager:
     """
-    获取系统工具管理器单例.
+    Get system tools manager singleton.
     """
     global _system_tools_manager
     if _system_tools_manager is None:
         _system_tools_manager = SystemToolsManager()
-        logger.debug("[SystemManager] 创建系统工具管理器实例")
+        logger.debug("[SystemManager] Created system tools manager instance.")
     return _system_tools_manager
