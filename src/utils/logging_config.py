@@ -6,47 +6,47 @@ from colorlog import ColoredFormatter
 
 def setup_logging():
     """
-    配置日志系统.
+    Configure the logging system.
     """
     from .resource_finder import get_project_root
 
-    # 使用resource_finder获取项目根目录并创建logs目录
+    # Use resource_finder to get project root and create the logs directory.
     project_root = get_project_root()
     log_dir = project_root / "logs"
     log_dir.mkdir(exist_ok=True)
 
-    # 日志文件路径
+    # Log file path.
     log_file = log_dir / "app.log"
 
-    # 创建根日志记录器
+    # Create the root logger.
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)  # 设置根日志级别
+    root_logger.setLevel(logging.INFO)  # Set root log level.
 
-    # 清除已有的处理器（避免重复添加）
+    # Clear existing handlers (avoid duplicates).
     if root_logger.handlers:
         root_logger.handlers.clear()
 
-    # 创建控制台处理器
+    # Create console handler.
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
 
-    # 创建按天切割的文件处理器
+    # Create daily rotating file handler.
     file_handler = TimedRotatingFileHandler(
         log_file,
-        when="midnight",  # 每天午夜切割
-        interval=1,  # 每1天
-        backupCount=30,  # 保留30天的日志
+        when="midnight",  # Rotate at midnight.
+        interval=1,  # Every day.
+        backupCount=30,  # Keep 30 days of logs.
         encoding="utf-8",
     )
     file_handler.setLevel(logging.INFO)
-    file_handler.suffix = "%Y-%m-%d.log"  # 日志文件后缀格式
+    file_handler.suffix = "%Y-%m-%d.log"  # Log file suffix format.
 
-    # 创建格式化器
+    # Create formatters.
     formatter = logging.Formatter(
         "%(asctime)s[%(name)s] - %(levelname)s - %(message)s - %(threadName)s"
     )
 
-    # 控制台颜色格式化器
+    # Console color formatter.
     color_formatter = ColoredFormatter(
         "%(green)s%(asctime)s%(reset)s[%(blue)s%(name)s%(reset)s] - "
         "%(log_color)s%(levelname)s%(reset)s - %(green)s%(message)s%(reset)s - "
@@ -63,41 +63,41 @@ def setup_logging():
     console_handler.setFormatter(color_formatter)
     file_handler.setFormatter(formatter)
 
-    # 添加处理器到根日志记录器
+    # Add handlers to the root logger.
     root_logger.addHandler(console_handler)
     root_logger.addHandler(file_handler)
 
-    # 输出日志配置信息
-    logging.info("日志系统已初始化，日志文件: %s", log_file)
+    # Log the logging configuration.
+    logging.info("Logging initialized, log file: %s", log_file)
 
     return log_file
 
 
 def get_logger(name):
-    """获取统一配置的日志记录器.
+    """Get a logger with the shared configuration.
 
     Args:
-        name: 日志记录器名称，通常是模块名
+        name: Logger name, usually the module name
 
     Returns:
-        logging.Logger: 配置好的日志记录器
+        logging.Logger: Configured logger instance
 
-    示例:
+    Example:
         logger = get_logger(__name__)
-        logger.info("这是一条信息")
-        logger.error("出错了: %s", error_msg)
+        logger.info("This is an info message")
+        logger.error("Error occurred: %s", error_msg)
     """
     logger = logging.getLogger(name)
 
-    # 添加一些辅助方法
+    # Add helper methods.
     def log_error_with_exc(msg, *args, **kwargs):
         """
-        记录错误并自动包含异常堆栈.
+        Log an error and automatically include the exception stack.
         """
         kwargs["exc_info"] = True
         logger.error(msg, *args, **kwargs)
 
-    # 添加到日志记录器
+    # Attach to logger.
     logger.error_exc = log_error_with_exc
 
     return logger

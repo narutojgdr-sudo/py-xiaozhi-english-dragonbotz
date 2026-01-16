@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import sounddevice as sd
 
-# 可选：屏蔽常见虚拟/聚合设备（默认不选它们）
+# Optional: filter common virtual/aggregate devices (not selected by default).
 _VIRTUAL_PATTERNS = [
     r"blackhole",
     r"aggregate",
@@ -32,55 +32,55 @@ def downmix_to_mono(
     dtype: np.dtype | str = np.int16,
     in_channels: int | None = None,
 ) -> np.ndarray | bytes:
-    """将任意格式的音频下混为单声道.
+    """Downmix audio of any format to mono.
 
-    支持两种输入:
-    1. np.ndarray: 形状 (N,) 或 (N, C) 的 PCM 数组
-    2. bytes: PCM 字节流 (需指定 dtype 和 in_channels)
+    Supports two input types:
+    1. np.ndarray: PCM arrays shaped (N,) or (N, C)
+    2. bytes: PCM byte stream (dtype and in_channels required)
 
     Args:
-        pcm: 输入音频数据 (ndarray 或 bytes)
-        keepdims: True 返回 (N,1)，False 返回 (N,) (仅 ndarray 输入)
-        dtype: PCM 数据类型 (仅 bytes 输入时使用)
-        in_channels: 输入声道数 (仅 bytes 输入时必需)
+        pcm: Input audio data (ndarray or bytes)
+        keepdims: True returns (N,1), False returns (N,) (ndarray only)
+        dtype: PCM data type (bytes input only)
+        in_channels: Input channel count (required for bytes input)
 
     Returns:
-        单声道音频数据 (与输入类型相同)
+        Mono audio data (same type as input)
 
     Examples:
-        >>> # ndarray 输入
+        >>> # ndarray input
         >>> stereo = np.random.randint(-32768, 32767, (1000, 2), dtype=np.int16)
         >>> mono = downmix_to_mono(stereo, keepdims=False)  # shape: (1000,)
 
-        >>> # bytes 输入
-        >>> stereo_bytes = b'...'  # 立体声 PCM 数据
+        >>> # bytes input
+        >>> stereo_bytes = b'...'  # Stereo PCM data
         >>> mono_bytes = downmix_to_mono(stereo_bytes, dtype=np.int16, in_channels=2)
     """
-    # bytes 输入: 转换 -> 处理 -> 转回 bytes
+    # Bytes input: convert -> process -> convert back to bytes.
     if isinstance(pcm, bytes):
         if in_channels is None:
-            raise ValueError("bytes 输入必须指定 in_channels 参数")
+            raise ValueError("bytes input requires the in_channels parameter")
         arr = np.frombuffer(pcm, dtype=dtype).reshape(-1, in_channels)
-        mono_arr = downmix_to_mono(arr, keepdims=False)  # bytes 输出不需要 keepdims
+        mono_arr = downmix_to_mono(arr, keepdims=False)  # bytes output ignores keepdims
         return mono_arr.tobytes()
 
-    # ndarray 输入: 直接处理
+    # ndarray input: process directly.
     x = np.asarray(pcm)
     if x.ndim == 1:
         return x[:, None] if keepdims else x
 
-    # 已经是单声道
+    # Already mono.
     if x.shape[1] == 1:
         return x if keepdims else x[:, 0]
 
-    # 多声道下混
+    # Downmix multichannel.
     if np.issubdtype(x.dtype, np.integer):
-        # 先转浮点求平均，再四舍五入回原整数类型，避免溢出
+        # Convert to float, average, then round back to avoid overflow.
         y = np.rint(x.astype(np.float32).mean(axis=1))
         info = np.iinfo(x.dtype)
         y = np.clip(y, info.min, info.max).astype(x.dtype)
     else:
-        # 浮点：保持原 dtype（比如 float32），避免默认为 float64
+        # Float: keep the original dtype (e.g., float32) instead of float64.
         y = x.mean(axis=1, dtype=x.dtype)
 
     return y[:, None] if keepdims else y
@@ -89,15 +89,15 @@ def downmix_to_mono(
 def safe_queue_put(
     queue: asyncio.Queue, item: Any, replace_oldest: bool = True
 ) -> bool:
-    """安全地将项目放入队列，队列满时可选择丢弃最旧数据.
+    """Safely put an item into a queue, optionally dropping oldest data.
 
     Args:
-        queue: asyncio.Queue 对象
-        item: 要入队的数据
-        replace_oldest: True=队列满时丢弃最旧数据并放入新数据, False=直接丢弃新数据
+        queue: asyncio.Queue instance
+        item: Item to enqueue
+        replace_oldest: True=drop oldest then enqueue, False=drop new item
 
     Returns:
-        True=成功入队, False=队列满且未入队
+        True=queued successfully, False=queue full and not enqueued
     """
     try:
         queue.put_nowait(item)
@@ -105,30 +105,30 @@ def safe_queue_put(
     except asyncio.QueueFull:
         if replace_oldest:
             try:
-                queue.get_nowait()  # 丢弃最旧的
-                queue.put_nowait(item)  # 放入新数据
+                queue.get_nowait()  # Drop oldest.
+                queue.put_nowait(item)  # Enqueue new item.
                 return True
             except asyncio.QueueEmpty:
-                # 理论上不会发生,但保险起见
+                # Should not happen, but be safe.
                 queue.put_nowait(item)
                 return True
         return False
 
 
 def upmix_mono_to_channels(mono_data: np.ndarray, num_channels: int) -> np.ndarray:
-    """将单声道音频上混到多声道（复制到所有声道）
+    """Upmix mono audio to multichannel (copy to all channels).
 
     Args:
-        mono_data: 单声道音频数据，形状 (N,)
-        num_channels: 目标声道数
+        mono_data: Mono audio data, shape (N,)
+        num_channels: Target channel count
 
     Returns:
-        多声道音频数据，形状 (N, num_channels)
+        Multichannel audio data, shape (N, num_channels)
     """
     if num_channels == 1:
         return mono_data.reshape(-1, 1)
 
-    # 复制单声道到所有声道
+    # Copy mono data to all channels.
     return np.tile(mono_data.reshape(-1, 1), (1, num_channels))
 
 
@@ -148,24 +148,25 @@ def select_audio_device(
     kind: str,
     *,
     include_virtual: bool = False,
-    allow_name_hints: Optional[bool] = None,  # None=Linux 才启用；True/False 可强制
+    allow_name_hints: Optional[bool] = None,  # None=Linux only; True/False to force
 ) -> Optional[Dict[str, Any]]:
     """
-    选择音频设备：HostAPI 默认 →（可选：设备名 hints，仅 Linux）→ sounddevice 系统默认 → 第一个可用 返回：{index, name,
-    sample_rate, channels} 或 None.
+    Select an audio device: HostAPI default → (optional name hints on Linux) →
+    sounddevice system default → first available. Returns {index, name,
+    sample_rate, channels} or None.
     """
     assert kind in ("input", "output")
     system = platform.system().lower()
 
-    # HostAPI 优先表
+    # HostAPI preference order.
     if system == "windows":
         host_order = ["wasapi", "wdm-ks", "directsound", "mme"]
     elif system == "darwin":
         host_order = ["core audio"]
     else:
-        host_order = ["alsa", "jack", "oss"]  # 多数 Linux 的 PortAudio 只有 ALSA
+        host_order = ["alsa", "jack", "oss"]  # Most Linux PortAudio uses ALSA.
 
-    # Linux 才默认启用 name hints；其它平台默认关闭（可通过参数打开）
+    # Enable name hints by default only on Linux (override via arg).
     if allow_name_hints is None:
         allow_name_hints = system == "linux"
 
@@ -174,7 +175,7 @@ def select_audio_device(
         "output": ["default", "sysdefault", "dmix", "pulse", "pipewire"],
     }
 
-    # 枚举
+    # Enumerate devices.
     try:
         hostapis = list(sd.query_hostapis())
         devices = list(sd.query_devices())
@@ -203,7 +204,7 @@ def select_audio_device(
             "channels": int(d.get(key_channels, 0)),
         }
 
-    # 1) 按 HostAPI 名称匹配（包含、忽略大小写）→ 取该 HostAPI 的“默认设备”
+    # 1) Match by HostAPI name (case-insensitive) → use its default device.
     for token in host_order:
         t = token.casefold()
         for ha in hostapis:
@@ -213,7 +214,7 @@ def select_audio_device(
                 if info:
                     return info
 
-    # 1.5) （可选）设备名 hints，仅当 allow_name_hints=True 时启用（默认 Linux）
+    # 1.5) Optional name hints when allow_name_hints=True (default on Linux).
     if allow_name_hints and devices:
         hints = [h.casefold() for h in DEVICE_NAME_HINTS[kind]]
         cands: List[int] = []
@@ -224,23 +225,23 @@ def select_audio_device(
             if any(h in name_low for h in hints):
                 cands.append(i)
         if cands:
-            cands.sort()  # 稳定：索引小优先
+            cands.sort()  # Stable: lowest index first.
             info = pack(cands[0])
             if info:
                 return info
 
-    # 2) sounddevice 的系统默认（已考虑平台默认路由）
+    # 2) sounddevice system default (includes platform routing).
     try:
         info = sd.query_devices(
             kind=kind
-        )  # dict，含 index / default_samplerate / max_*_channels
+        )  # dict with index / default_samplerate / max_*_channels
         packed = pack(int(info.get("index")), base=info)
         if packed:
             return packed
     except Exception:
         pass
 
-    # 3) 兜底：第一个可用（且非虚拟，除非允许）
+    # 3) Fallback: first available (and non-virtual unless allowed).
     for i, d in enumerate(devices):
         if _valid(devices, i, kind, include_virtual):
             return pack(i)

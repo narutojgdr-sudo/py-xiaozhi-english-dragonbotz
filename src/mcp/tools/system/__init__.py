@@ -1,6 +1,6 @@
-"""系统工具包.
+"""System tools package.
 
-提供完整的系统管理功能，包括设备状态查询、音频控制等操作。
+Provides system management functions including device status and audio control.
 """
 
 from .manager import SystemToolsManager, get_system_tools_manager

@@ -10,13 +10,13 @@ from src.utils.logging_config import get_logger
 
 class VolumeController:
     """
-    跨平台音量控制器.
+    Cross-platform volume controller.
     """
 
-    # 默认音量常量
+    # Default volume constant.
     DEFAULT_VOLUME = 70
 
-    # 平台特定的方法映射
+    # Platform-specific method mapping.
     PLATFORM_INIT = {
         "Windows": "_init_windows",
         "Darwin": "_init_macos",
@@ -35,7 +35,7 @@ class VolumeController:
         "amixer": ("_get_amixer_volume", "_set_amixer_volume"),
     }
 
-    # 平台特定的模块依赖
+    # Platform-specific module dependencies.
     PLATFORM_MODULES = {
         "Windows": {
             "pycaw": "pycaw.pycaw",
@@ -50,32 +50,32 @@ class VolumeController:
 
     def __init__(self):
         """
-        初始化音量控制器.
+        Initialize the volume controller.
         """
         self.logger = get_logger("VolumeController")
         self.system = platform.system()
         self.is_arm = platform.machine().startswith(("arm", "aarch"))
         self.linux_tool = None
-        self._module_cache = {}  # 模块缓存
+        self._module_cache = {}  # Module cache.
 
-        # 初始化特定平台的控制器
+        # Initialize platform-specific controller.
         init_method_name = self.PLATFORM_INIT.get(self.system)
         if init_method_name:
             init_method = getattr(self, init_method_name)
             init_method()
         else:
-            self.logger.warning(f"不支持的操作系统: {self.system}")
-            raise NotImplementedError(f"不支持的操作系统: {self.system}")
+            self.logger.warning(f"Unsupported operating system: {self.system}")
+            raise NotImplementedError(f"Unsupported operating system: {self.system}")
 
     def _lazy_import(self, module_name: str, attr: str = None) -> Any:
-        """懒加载模块，支持缓存和属性导入.
+        """Lazy-load modules with caching and attribute import.
 
         Args:
-            module_name: 模块名称
-            attr: 可选，模块中的属性名
+            module_name: Module name
+            attr: Optional attribute name within the module
 
         Returns:
-            导入的模块或属性
+            Imported module or attribute
         """
         if module_name in self._module_cache:
             module = self._module_cache[module_name]
@@ -86,7 +86,7 @@ class VolumeController:
                 )
                 self._module_cache[module_name] = module
             except ImportError as e:
-                self.logger.warning(f"导入模块 {module_name} 失败: {e}")
+                self.logger.warning(f"Failed to import module {module_name}: {e}")
                 raise
 
         if attr:
@@ -95,7 +95,7 @@ class VolumeController:
 
     def _safe_execute(self, func_name: str, default_return: Any = None) -> Callable:
         """
-        安全执行函数的装饰器.
+        Decorator for safe execution.
         """
 
         def decorator(func):
@@ -104,7 +104,7 @@ class VolumeController:
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
-                    self.logger.warning(f"{func_name}失败: {e}")
+                    self.logger.warning(f"{func_name} failed: {e}")
                     return default_return
 
             return wrapper
@@ -115,20 +115,20 @@ class VolumeController:
         self, cmd: List[str], check: bool = False
     ) -> Optional[subprocess.CompletedProcess]:
         """
-        通用命令执行方法.
+        Generic command execution helper.
         """
         try:
             return subprocess.run(cmd, capture_output=True, text=True, check=check)
         except Exception as e:
-            self.logger.debug(f"执行命令失败 {' '.join(cmd)}: {e}")
+            self.logger.debug(f"Command failed {' '.join(cmd)}: {e}")
             return None
 
     def _init_windows(self) -> None:
         """
-        初始化Windows音量控制.
+        Initialize Windows volume control.
         """
         try:
-            # 使用懒加载导入所需模块
+            # Lazy-load required modules.
             POINTER = self._lazy_import("ctypes", "POINTER")
             cast = self._lazy_import("ctypes", "cast")
             CLSCTX_ALL = self._lazy_import("comtypes", "CLSCTX_ALL")
@@ -142,32 +142,32 @@ class VolumeController:
                 IAudioEndpointVolume._iid_, CLSCTX_ALL, None
             )
             self.volume_control = cast(interface, POINTER(IAudioEndpointVolume))
-            self.logger.debug("Windows音量控制初始化成功")
+            self.logger.debug("Windows volume control initialized.")
         except Exception as e:
-            self.logger.error(f"Windows音量控制初始化失败: {e}")
+            self.logger.error(f"Windows volume control initialization failed: {e}")
             raise
 
     def _init_macos(self) -> None:
         """
-        初始化macOS音量控制.
+        Initialize macOS volume control.
         """
         try:
             applescript = self._lazy_import("applescript")
 
-            # 测试是否可以访问音量控制
+            # Test access to volume control.
             result = applescript.run("get volume settings")
             if not result or result.code != 0:
-                raise Exception("无法访问macOS音量控制")
-            self.logger.debug("macOS音量控制初始化成功")
+                raise Exception("Unable to access macOS volume control.")
+            self.logger.debug("macOS volume control initialized.")
         except Exception as e:
-            self.logger.error(f"macOS音量控制初始化失败: {e}")
+            self.logger.error(f"macOS volume control initialization failed: {e}")
             raise
 
     def _init_linux(self) -> None:
         """
-        初始化Linux音量控制.
+        Initialize Linux volume control.
         """
-        # 按优先级检查工具
+        # Check tools by priority.
         linux_tools = ["pactl", "wpctl", "amixer"]
         for tool in linux_tools:
             if shutil.which(tool):
@@ -175,14 +175,18 @@ class VolumeController:
                 break
 
         if not self.linux_tool:
-            self.logger.error("未找到可用的Linux音量控制工具 (pactl/wpctl/amixer)")
-            raise Exception("未找到可用的Linux音量控制工具")
+            self.logger.error(
+                "No available Linux volume tools found (pactl/wpctl/amixer)."
+            )
+            raise Exception("No available Linux volume tools found.")
 
-        self.logger.debug(f"Linux音量控制初始化成功，使用: {self.linux_tool}")
+        self.logger.debug(
+            f"Linux volume control initialized, using: {self.linux_tool}"
+        )
 
     def get_volume(self) -> int:
         """
-        获取当前音量 (0-100)
+        Get current volume (0-100).
         """
         get_method_name, _ = self.VOLUME_METHODS.get(self.system, (None, None))
         if not get_method_name:
@@ -193,9 +197,9 @@ class VolumeController:
 
     def set_volume(self, volume: int) -> None:
         """
-        设置音量 (0-100)
+        Set volume (0-100).
         """
-        # 确保音量在有效范围内
+        # Ensure volume is within bounds.
         volume = max(0, min(100, volume))
 
         _, set_method_name = self.VOLUME_METHODS.get(self.system, (None, None))
@@ -205,7 +209,7 @@ class VolumeController:
 
     @property
     def _get_windows_volume(self) -> Callable[[], int]:
-        @self._safe_execute("获取Windows音量", self.DEFAULT_VOLUME)
+        @self._safe_execute("Get Windows volume", self.DEFAULT_VOLUME)
         def get_volume():
             volume_scalar = self.volume_control.GetMasterVolumeLevelScalar()
             return int(volume_scalar * 100)
@@ -214,7 +218,7 @@ class VolumeController:
 
     @property
     def _set_windows_volume(self) -> Callable[[int], None]:
-        @self._safe_execute("设置Windows音量")
+        @self._safe_execute("Set Windows volume")
         def set_volume(volume):
             self.volume_control.SetMasterVolumeLevelScalar(volume / 100.0, None)
 
@@ -222,7 +226,7 @@ class VolumeController:
 
     @property
     def _get_macos_volume(self) -> Callable[[], int]:
-        @self._safe_execute("获取macOS音量", self.DEFAULT_VOLUME)
+        @self._safe_execute("Get macOS volume", self.DEFAULT_VOLUME)
         def get_volume():
             applescript = self._lazy_import("applescript")
             result = applescript.run("output volume of (get volume settings)")
@@ -234,7 +238,7 @@ class VolumeController:
 
     @property
     def _set_macos_volume(self) -> Callable[[int], None]:
-        @self._safe_execute("设置macOS音量")
+        @self._safe_execute("Set macOS volume")
         def set_volume(volume):
             applescript = self._lazy_import("applescript")
             applescript.run(f"set volume output volume {volume}")
@@ -243,7 +247,7 @@ class VolumeController:
 
     def _get_linux_volume(self) -> int:
         """
-        获取Linux音量.
+        Get Linux volume.
         """
         get_method_name, _ = self.LINUX_VOLUME_METHODS.get(
             self.linux_tool, (None, None)
@@ -256,7 +260,7 @@ class VolumeController:
 
     def _set_linux_volume(self, volume: int) -> None:
         """
-        设置Linux音量.
+        Set Linux volume.
         """
         _, set_method_name = self.LINUX_VOLUME_METHODS.get(
             self.linux_tool, (None, None)
@@ -267,26 +271,26 @@ class VolumeController:
 
     @property
     def _get_pactl_volume(self) -> Callable[[], int]:
-        @self._safe_execute("通过pactl获取音量", self.DEFAULT_VOLUME)
+        @self._safe_execute("Get volume via pactl", self.DEFAULT_VOLUME)
         def get_volume():
             result = self._run_command(["pactl", "list", "sinks"])
             if result and result.returncode == 0:
-                # 支持多种格式:
+                # Supported formats:
                 # 1. Volume: front-left: 65535 / 65% / -10.77 dB
                 # 2. Volume: 65%
-                # 使用更宽松的匹配规则
+                # Use relaxed matching.
                 for line in result.stdout.split("\n"):
                     if "Volume:" in line:
-                        # 提取所有百分比，取第一个
+                        # Extract the first percentage.
                         match = re.search(r"(\d+)%", line)
                         if match:
                             volume = int(match.group(1))
-                            self.logger.debug(f"pactl获取音量成功: {volume}%")
+                            self.logger.debug(f"pactl volume read: {volume}%")
                             return volume
-                self.logger.warning("pactl输出中未找到音量信息")
+                self.logger.warning("No volume info found in pactl output.")
             else:
                 self.logger.warning(
-                    f"pactl命令执行失败: {result.returncode if result else 'None'}"
+                    f"pactl command failed: {result.returncode if result else 'None'}"
                 )
             return self.DEFAULT_VOLUME
 
@@ -294,37 +298,37 @@ class VolumeController:
 
     @property
     def _set_pactl_volume(self) -> Callable[[int], None]:
-        @self._safe_execute("通过pactl设置音量")
+        @self._safe_execute("Set volume via pactl")
         def set_volume(volume):
             result = self._run_command(
                 ["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{volume}%"]
             )
             if result and result.returncode == 0:
-                self.logger.debug(f"pactl设置音量成功: {volume}%")
+                self.logger.debug(f"pactl volume set: {volume}%")
             else:
                 self.logger.warning(
-                    f"pactl设置音量失败: {result.returncode if result else 'None'}"
+                    f"pactl volume set failed: {result.returncode if result else 'None'}"
                 )
 
         return set_volume
 
     @property
     def _get_wpctl_volume(self) -> Callable[[], int]:
-        @self._safe_execute("通过wpctl获取音量", self.DEFAULT_VOLUME)
+        @self._safe_execute("Get volume via wpctl", self.DEFAULT_VOLUME)
         def get_volume():
             result = self._run_command(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])
             if result and result.returncode == 0:
-                # 支持多种输出格式: "Volume: 0.65", "0.65", "Volume: 0.65 [MUTED]"
+                # Supported formats: "Volume: 0.65", "0.65", "Volume: 0.65 [MUTED]"
                 match = re.search(r"(\d+\.?\d*)", result.stdout)
                 if match:
                     volume = int(float(match.group(1)) * 100)
-                    self.logger.debug(f"wpctl获取音量成功: {volume}%")
+                    self.logger.debug(f"wpctl volume read: {volume}%")
                     return volume
                 else:
-                    self.logger.warning(f"wpctl输出格式无法解析: {result.stdout}")
+                    self.logger.warning(f"Unparseable wpctl output: {result.stdout}")
             else:
                 self.logger.warning(
-                    f"wpctl命令执行失败: {result.returncode if result else 'None'}"
+                    f"wpctl command failed: {result.returncode if result else 'None'}"
                 )
             return self.DEFAULT_VOLUME
 
@@ -332,40 +336,40 @@ class VolumeController:
 
     @property
     def _set_wpctl_volume(self) -> Callable[[int], None]:
-        @self._safe_execute("通过wpctl设置音量")
+        @self._safe_execute("Set volume via wpctl")
         def set_volume(volume):
             result = self._run_command(
                 ["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", f"{volume / 100.0:.2f}"]
             )
             if result and result.returncode == 0:
-                self.logger.debug(f"wpctl设置音量成功: {volume}%")
+                self.logger.debug(f"wpctl volume set: {volume}%")
             else:
                 self.logger.warning(
-                    f"wpctl设置音量失败: {result.returncode if result else 'None'}"
+                    f"wpctl volume set failed: {result.returncode if result else 'None'}"
                 )
 
         return set_volume
 
     @property
     def _get_amixer_volume(self) -> Callable[[], int]:
-        @self._safe_execute("通过amixer获取音量", self.DEFAULT_VOLUME)
+        @self._safe_execute("Get volume via amixer", self.DEFAULT_VOLUME)
         def get_volume():
             result = self._run_command(["amixer", "get", "Master"])
             if result and result.returncode == 0:
-                # 支持多种格式:
+                # Supported formats:
                 # 1. Mono: Playback 65 [65%] [-10.77dB] [on]
                 # 2. Front Left: Playback 65 [65%] [-10.77dB] [on]
-                # 提取第一个百分比数值
+                # Extract the first percentage value.
                 match = re.search(r"\[(\d+)%\]", result.stdout)
                 if match:
                     volume = int(match.group(1))
-                    self.logger.debug(f"amixer获取音量成功: {volume}%")
+                    self.logger.debug(f"amixer volume read: {volume}%")
                     return volume
                 else:
-                    self.logger.warning(f"amixer输出格式无法解析: {result.stdout}")
+                    self.logger.warning(f"Unparseable amixer output: {result.stdout}")
             else:
                 self.logger.warning(
-                    f"amixer命令执行失败: {result.returncode if result else 'None'}"
+                    f"amixer command failed: {result.returncode if result else 'None'}"
                 )
             return self.DEFAULT_VOLUME
 
@@ -373,14 +377,14 @@ class VolumeController:
 
     @property
     def _set_amixer_volume(self) -> Callable[[int], None]:
-        @self._safe_execute("通过amixer设置音量")
+        @self._safe_execute("Set volume via amixer")
         def set_volume(volume):
             result = self._run_command(["amixer", "sset", "Master", f"{volume}%"])
             if result and result.returncode == 0:
-                self.logger.debug(f"amixer设置音量成功: {volume}%")
+                self.logger.debug(f"amixer volume set: {volume}%")
             else:
                 self.logger.warning(
-                    f"amixer设置音量失败: {result.returncode if result else 'None'}"
+                    f"amixer volume set failed: {result.returncode if result else 'None'}"
                 )
 
         return set_volume
@@ -388,25 +392,25 @@ class VolumeController:
     @staticmethod
     def check_dependencies() -> bool:
         """
-        检查并报告缺少的依赖.
+        Check and report missing dependencies.
         """
         system = platform.system()
         missing = []
 
-        # 检查Python模块依赖
+        # Check Python module dependencies.
         VolumeController._check_python_modules(system, missing)
 
-        # 检查Linux工具依赖
+        # Check Linux tool dependencies.
         if system == "Linux":
             VolumeController._check_linux_tools(missing)
 
-        # 报告缺少的依赖
+        # Report missing dependencies.
         return VolumeController._report_missing_dependencies(system, missing)
 
     @staticmethod
     def _check_python_modules(system: str, missing: List[str]) -> None:
         """
-        检查Python模块依赖.
+        Check Python module dependencies.
         """
         if system == "Windows":
             for module in ["pycaw", "comtypes"]:
@@ -423,21 +427,24 @@ class VolumeController:
     @staticmethod
     def _check_linux_tools(missing: List[str]) -> None:
         """
-        检查Linux工具依赖.
+        Check Linux tool dependencies.
         """
         tools = ["pactl", "wpctl", "amixer"]
         found = any(shutil.which(tool) for tool in tools)
         if not found:
-            missing.append("pulseaudio-utils、wireplumber 或 alsa-utils")
+            missing.append("pulseaudio-utils, wireplumber, or alsa-utils")
 
     @staticmethod
     def _report_missing_dependencies(system: str, missing: List[str]) -> bool:
         """
-        报告缺少的依赖.
+        Report missing dependencies.
         """
         if missing:
-            print(f"警告: 音量控制需要以下依赖，但未找到: {', '.join(missing)}")
-            print("请使用以下命令安装缺少的依赖:")
+            print(
+                "Warning: volume control requires these dependencies but they were "
+                f"not found: {', '.join(missing)}"
+            )
+            print("Install missing dependencies using:")
             if system in ["Windows", "Darwin"]:
                 print("pip install " + " ".join(missing))
             elif system == "Linux":
